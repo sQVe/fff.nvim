@@ -72,7 +72,6 @@ pub fn match_and_score_files(files: &[FileItem], context: &ScoringContext) -> Ve
         prefilter: true,
         max_typos: Some(context.max_typos),
         sort: false,
-        ..Default::default()
     };
 
     let haystack: Vec<&str> = files.iter().map(|f| f.relative_path.as_str()).collect();
@@ -140,10 +139,11 @@ pub fn match_and_score_files(files: &[FileItem], context: &ScoringContext) -> Ve
                     base_score / 5 * 2 // 40% bonus for exact filename match
                 }
                 Some(_) => base_score / 5, // 20% bonus for fuzzy filename match
-                // if the file is special directory give it an extra bonus
                 None if is_special_entry_point_file(&file.file_name) => {
+                    // 18% bonus special filename just as much as exact path
+                    // but a little bit less to give preference to the actual file if present
                     has_special_filename_bonus = true;
-                    base_score / 5
+                    base_score * 18 / 100
                 }
                 None => 0,
             };
@@ -185,18 +185,26 @@ pub fn match_and_score_files(files: &[FileItem], context: &ScoringContext) -> Ve
 /// Check if a filename is a special entry point file that deserves bonus scoring
 /// These are typically files that serve as module exports or entry points
 fn is_special_entry_point_file(filename: &str) -> bool {
-    match filename {
-        "mod.rs" | "lib.rs" | "main.rs" => true,
-        "index.js" | "index.jsx" | "index.ts" | "index.tsx" => true,
-        "index.mjs" | "index.cjs" => true,
-        "index.vue" => true,
-        "__init__.py" | "__main__.py" => true,
-        "main.go" => true,
-        "main.c" => true,
-        "index.php" => true,
-        "main.rb" | "index.rb" => true,
-        _ => false,
-    }
+    matches!(
+        filename,
+        "mod.rs"
+            | "lib.rs"
+            | "main.rs"
+            | "index.js"
+            | "index.jsx"
+            | "index.ts"
+            | "index.tsx"
+            | "index.mjs"
+            | "index.cjs"
+            | "index.vue"
+            | "__init__.py"
+            | "__main__.py"
+            | "main.go"
+            | "main.c"
+            | "index.php"
+            | "main.rb"
+            | "index.rb"
+    )
 }
 
 fn score_all_by_frecency(files: &[FileItem], context: &ScoringContext) -> Vec<(usize, Score)> {

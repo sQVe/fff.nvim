@@ -49,9 +49,11 @@ FFF.nvim requires:
 {
   "dmtrKovalenko/fff.nvim",
   build = "cargo build --release",
+  -- or if you are using nixos
+  -- build = "nix run .#release",
   opts = {
     -- pass here all the options
-  }
+  },
   keys = {
     {
       "<leader>ff", -- try it if you didn't it is a banger keybinding for a picker
@@ -64,43 +66,6 @@ FFF.nvim requires:
 }
 ```
 
-## Default Configuration
-
-```lua
-require("fff").setup({
-  width = 0.8,
-  height = 0.8,
-  preview_width = 0.5,
-  prompt = '🪿 ',
-  title = 'FFF Files',
-  max_results = 60, -- Maximum number of search results
-  max_threads = 4, -- Maximum threads for fuzzy search
-
-  keymaps = {
-    close = '<Esc>',
-    select = '<CR>',
-    select_split = '<C-s>',
-    select_vsplit = '<C-v>',
-    select_tab = '<C-t>',
-    move_up = { '<Up>', '<C-p>' },
-    move_down = { '<Down>', '<C-n>' },
-    preview_scroll_up = '<C-u>',
-    preview_scroll_down = '<C-d>',
-  },
-
-  hl = {
-    border = 'FloatBorder',
-    normal = 'Normal',
-    cursor = 'CursorLine',
-    matched = 'IncSearch',
-    title = 'Title',
-    prompt = 'Question',
-    active_file = 'Visual',
-    frecency = 'Number',
-    debug = 'Comment',
-  },
-})
-```
 
 ### Default Configuration
 
@@ -111,8 +76,13 @@ require("fff").setup({
   -- UI dimensions and appearance
   width = 0.8,          -- Window width as fraction of screen
   height = 0.8,         -- Window height as fraction of screen
-  preview_width = 0.5,  -- Preview pane width as fraction of picker
   prompt = '🪿 ',       -- Input prompt symbol
+  preview = {
+      enabled = true,
+      width = 0.5,
+      max_lines = 100,
+      max_size = 1024 * 1024, -- 1MB
+  },
   title = 'FFF Files',  -- Window title
   max_results = 60,     -- Maximum search results to display
   max_threads = 4,      -- Maximum threads for fuzzy search
