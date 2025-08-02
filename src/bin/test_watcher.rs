@@ -153,7 +153,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         if iteration % 40 == 0 {
-            let search_results = picker.fuzzy_search("rs", 5, 2, None, -8, 35, 0.5).unwrap_or_default();
+            let search_results = picker
+                .fuzzy_search("rs", 5, 2, None, -8, 35, 0.5)
+                .unwrap_or_default();
             let timestamp = chrono::Local::now().format("%H:%M:%S");
             println!(
                 "🔍 [{}] Search test 'rs': {} matches",

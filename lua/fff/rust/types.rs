@@ -39,20 +39,24 @@ pub struct CurrentFileData {
 
 impl CurrentFileData {
     pub fn from_path(path: &str) -> Option<Self> {
-        use std::path::{Path, Component};
+        use std::path::{Component, Path};
 
         let path = Path::new(path);
         let stem = path.file_stem()?.to_str()?.to_string();
         let dir = path.parent()?;
 
-        let directory_parts: Vec<String> = dir.components()
+        let directory_parts: Vec<String> = dir
+            .components()
             .filter_map(|c| match c {
                 Component::Normal(os_str) => os_str.to_str().map(|s| s.to_string()),
                 _ => None,
             })
             .collect();
 
-        Some(CurrentFileData { stem, directory_parts })
+        Some(CurrentFileData {
+            stem,
+            directory_parts,
+        })
     }
 }
 

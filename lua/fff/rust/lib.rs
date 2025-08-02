@@ -67,7 +67,23 @@ pub fn get_cached_files(_: &Lua, _: ()) -> LuaResult<Vec<FileItem>> {
 
 pub fn fuzzy_search_files(
     _: &Lua,
-    (query, max_results, max_threads, current_file, distance_penalty, relation_bonus_max, relation_similarity_threshold): (String, usize, usize, Option<String>, Option<i32>, Option<i32>, Option<f64>),
+    (
+        query,
+        max_results,
+        max_threads,
+        current_file,
+        distance_penalty,
+        relation_bonus_max,
+        relation_similarity_threshold,
+    ): (
+        String,
+        usize,
+        usize,
+        Option<String>,
+        Option<i32>,
+        Option<i32>,
+        Option<f64>,
+    ),
 ) -> LuaResult<SearchResult> {
     let time = std::time::Instant::now();
     let file_picker = FILE_PICKER.read().map_err(|_| Error::AcquireItemLock)?;
@@ -79,7 +95,15 @@ pub fn fuzzy_search_files(
     let distance_penalty = distance_penalty.unwrap_or(-8);
     let relation_bonus_max = relation_bonus_max.unwrap_or(35);
     let relation_similarity_threshold = relation_similarity_threshold.unwrap_or(0.5);
-    let results = picker.fuzzy_search(&query, max_results, max_threads, current_file, distance_penalty, relation_bonus_max, relation_similarity_threshold)?;
+    let results = picker.fuzzy_search(
+        &query,
+        max_results,
+        max_threads,
+        current_file,
+        distance_penalty,
+        relation_bonus_max,
+        relation_similarity_threshold,
+    )?;
     Ok(results)
 }
 

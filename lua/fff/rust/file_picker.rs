@@ -254,7 +254,8 @@ impl FilePicker {
         };
 
         // Pre-compute current file data for performance optimization.
-        let current_file_data = current_file.as_deref()
+        let current_file_data = current_file
+            .as_deref()
             .and_then(crate::types::CurrentFileData::from_path);
 
         let context = ScoringContext {
@@ -630,32 +631,32 @@ fn scan_filesystem(
             })
         });
 
-    let mut files = Arc::try_unwrap(files)
-        .map_err(|_| Error::InvalidPath("Arc unwrap failed - Arc is still shared".to_string()))?
-        .into_inner()
-        .map_err(|_| Error::InvalidPath("Mutex poisoned during file scanning".to_string()))?;
-    let walker_time = walker_start.elapsed();
-    info!("SCAN: File walking completed in {:?}", walker_time);
+        let mut files = Arc::try_unwrap(files)
+            .map_err(|_| Error::InvalidPath("Arc unwrap failed - Arc is still shared".to_string()))?
+            .into_inner()
+            .map_err(|_| Error::InvalidPath("Mutex poisoned during file scanning".to_string()))?;
+        let walker_time = walker_start.elapsed();
+        info!("SCAN: File walking completed in {:?}", walker_time);
 
-    let git_cache = git_handle
-        .join()
-        .map_err(|_| Error::InvalidPath("Git status thread panicked".to_string()))?;
+        let git_cache = git_handle
+            .join()
+            .map_err(|_| Error::InvalidPath("Git status thread panicked".to_string()))?;
 
-    if let Some(git_cache) = &git_cache {
-        files.par_iter_mut().for_each(|file| {
-            file.git_status = git_cache.lookup_status(&file.path);
-            file.update_frecency_scores();
-        });
-    }
+        if let Some(git_cache) = &git_cache {
+            files.par_iter_mut().for_each(|file| {
+                file.git_status = git_cache.lookup_status(&file.path);
+                file.update_frecency_scores();
+            });
+        }
 
-    let total_time = scan_start.elapsed();
-    info!(
-        "SCAN: Total scan time {:?} for {} files",
-        total_time,
-        files.len()
-    );
+        let total_time = scan_start.elapsed();
+        info!(
+            "SCAN: Total scan time {:?} for {} files",
+            total_time,
+            files.len()
+        );
 
-    Ok((files, git_cache))
+        Ok((files, git_cache))
     })
 }
 

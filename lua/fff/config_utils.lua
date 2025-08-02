@@ -34,12 +34,11 @@ end
 --- @return table Internal scoring parameters
 function M.map_preference_to_scoring(preference)
   return {
-    directory_distance_penalty = -8,  -- Balanced penalty for different directories
-    filename_similarity_bonus_max = math.floor(50 * preference),  -- Moderate sibling bonus (35 with default 0.7)
-    filename_similarity_threshold = 0.5,  -- Good relevance/performance balance
+    directory_distance_penalty = -8, -- Balanced penalty for different directories
+    filename_similarity_bonus_max = math.floor(50 * preference), -- Moderate sibling bonus (35 with default 0.7)
+    filename_similarity_threshold = 0.5, -- Good relevance/performance balance
     max_search_directory_levels = math.floor(1 + 3 * preference),
   }
 end
 
 return M
-

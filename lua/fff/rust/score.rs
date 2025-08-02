@@ -1,6 +1,8 @@
 use crate::{
-    path_utils::{calculate_directory_distance_penalty, calculate_filename_similarity_bonus,
-                calculate_directory_distance_penalty_optimized, calculate_filename_similarity_bonus_optimized},
+    path_utils::{
+        calculate_directory_distance_penalty, calculate_directory_distance_penalty_optimized,
+        calculate_filename_similarity_bonus, calculate_filename_similarity_bonus_optimized,
+    },
     types::{FileItem, Score, ScoringContext},
 };
 use rayon::prelude::*;
@@ -21,16 +23,17 @@ fn calculate_proximity_scores(context: &ScoringContext, file: &FileItem) -> (i32
 
         // Only calculate relation bonus for files that are "close" (within MAX_DISTANCE_FOR_SIMILARITY_BONUS levels).
         // This gates the expensive Jaro-Winkler calculation for performance.
-        let bonus = if penalty / context.directory_distance_penalty <= MAX_DISTANCE_FOR_SIMILARITY_BONUS {
-            calculate_filename_similarity_bonus_optimized(
-                &current_data.stem,
-                &file.relative_path,
-                context.filename_similarity_bonus_max,
-                context.filename_similarity_threshold,
-            )
-        } else {
-            0
-        };
+        let bonus =
+            if penalty / context.directory_distance_penalty <= MAX_DISTANCE_FOR_SIMILARITY_BONUS {
+                calculate_filename_similarity_bonus_optimized(
+                    &current_data.stem,
+                    &file.relative_path,
+                    context.filename_similarity_bonus_max,
+                    context.filename_similarity_threshold,
+                )
+            } else {
+                0
+            };
 
         (penalty, bonus)
     } else {
@@ -41,19 +44,20 @@ fn calculate_proximity_scores(context: &ScoringContext, file: &FileItem) -> (i32
             context.directory_distance_penalty,
         );
 
-        let bonus = if penalty / context.directory_distance_penalty <= MAX_DISTANCE_FOR_SIMILARITY_BONUS {
-            match context.current_file {
-                Some(current_file) => calculate_filename_similarity_bonus(
-                    current_file,
-                    &file.relative_path,
-                    context.filename_similarity_bonus_max,
-                    context.filename_similarity_threshold,
-                ),
-                None => 0,
-            }
-        } else {
-            0
-        };
+        let bonus =
+            if penalty / context.directory_distance_penalty <= MAX_DISTANCE_FOR_SIMILARITY_BONUS {
+                match context.current_file {
+                    Some(current_file) => calculate_filename_similarity_bonus(
+                        current_file,
+                        &file.relative_path,
+                        context.filename_similarity_bonus_max,
+                        context.filename_similarity_threshold,
+                    ),
+                    None => 0,
+                }
+            } else {
+                0
+            };
 
         (penalty, bonus)
     }
@@ -216,7 +220,9 @@ fn score_all_by_frecency(files: &[FileItem], context: &ScoringContext) -> Vec<(u
                 + (file.modification_frecency_score as i32).saturating_mul(4);
 
             let (distance_penalty, relation_bonus) = calculate_proximity_scores(context, file);
-            let total = total_frecency_score.saturating_add(distance_penalty).saturating_add(relation_bonus);
+            let total = total_frecency_score
+                .saturating_add(distance_penalty)
+                .saturating_add(relation_bonus);
             let score = Score {
                 total,
                 base_score: 0,

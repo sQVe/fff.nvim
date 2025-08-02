@@ -1,4 +1,3 @@
-
 const MAX_PENALTY_LEVEL_MULTIPLIER: i32 = 10;
 
 pub fn calculate_filename_similarity_bonus(
@@ -48,7 +47,10 @@ pub fn calculate_filename_similarity_bonus_optimized(
         return 0;
     }
 
-    let candidate_stem = match Path::new(candidate_file_path).file_stem().and_then(|s| s.to_str()) {
+    let candidate_stem = match Path::new(candidate_file_path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+    {
         Some(stem) => stem,
         None => return 0,
     };
@@ -62,9 +64,12 @@ pub fn calculate_filename_similarity_bonus_optimized(
     }
 }
 
-
-pub fn calculate_directory_distance_penalty(current_file: Option<&str>, candidate_path: &str, penalty_per_level: i32) -> i32 {
-    use std::path::{Path, Component};
+pub fn calculate_directory_distance_penalty(
+    current_file: Option<&str>,
+    candidate_path: &str,
+    penalty_per_level: i32,
+) -> i32 {
+    use std::path::{Component, Path};
 
     let Some(current_path_str) = current_file else {
         return 0;
@@ -86,10 +91,12 @@ pub fn calculate_directory_distance_penalty(current_file: Option<&str>, candidat
         return 0;
     }
 
-    let current_components: Vec<_> = current_dir.components()
+    let current_components: Vec<_> = current_dir
+        .components()
         .filter(|c| matches!(c, Component::Normal(_)))
         .collect();
-    let candidate_components: Vec<_> = candidate_dir.components()
+    let candidate_components: Vec<_> = candidate_dir
+        .components()
         .filter(|c| matches!(c, Component::Normal(_)))
         .collect();
 
@@ -121,7 +128,7 @@ pub fn calculate_directory_distance_penalty_optimized(
     candidate_path: &str,
     penalty_per_level: i32,
 ) -> i32 {
-    use std::path::{Path, Component};
+    use std::path::{Component, Path};
 
     let candidate_path = Path::new(candidate_path);
     let candidate_dir = match candidate_path.parent() {
@@ -129,7 +136,8 @@ pub fn calculate_directory_distance_penalty_optimized(
         None => return 0,
     };
 
-    let candidate_parts: Vec<String> = candidate_dir.components()
+    let candidate_parts: Vec<String> = candidate_dir
+        .components()
         .filter_map(|c| match c {
             Component::Normal(os_str) => os_str.to_str().map(|s| s.to_string()),
             _ => None,
@@ -168,43 +176,88 @@ mod tests {
         // Test with Jaro-Winkler similarity (different from Levenshtein scores)
 
         // Perfect similarity (same stem, different extensions)
-        assert_eq!(calculate_filename_similarity_bonus("vector.h", "vector.cpp", 50, 0.6), 50); // 1.0 similarity
-        assert_eq!(calculate_filename_similarity_bonus("api.rs", "api.md", 50, 0.6), 50); // 1.0 similarity
-        assert_eq!(calculate_filename_similarity_bonus("main.js", "main.ts", 50, 0.6), 50); // 1.0 similarity
+        assert_eq!(
+            calculate_filename_similarity_bonus("vector.h", "vector.cpp", 50, 0.6),
+            50
+        ); // 1.0 similarity
+        assert_eq!(
+            calculate_filename_similarity_bonus("api.rs", "api.md", 50, 0.6),
+            50
+        ); // 1.0 similarity
+        assert_eq!(
+            calculate_filename_similarity_bonus("main.js", "main.ts", 50, 0.6),
+            50
+        ); // 1.0 similarity
 
         // High similarity cases (Jaro-Winkler prefers prefix matches)
-        let utils_similarity = calculate_filename_similarity_bonus("utils.rs", "utils_test.rs", 50, 0.6);
-        assert!(utils_similarity > 0, "utils.rs and utils_test.rs should have high Jaro-Winkler similarity");
+        let utils_similarity =
+            calculate_filename_similarity_bonus("utils.rs", "utils_test.rs", 50, 0.6);
+        assert!(
+            utils_similarity > 0,
+            "utils.rs and utils_test.rs should have high Jaro-Winkler similarity"
+        );
 
-        let button_similarity = calculate_filename_similarity_bonus("Button.tsx", "Button.test.tsx", 50, 0.6);
-        assert!(button_similarity > 0, "Button.tsx and Button.test.tsx should have high Jaro-Winkler similarity");
+        let button_similarity =
+            calculate_filename_similarity_bonus("Button.tsx", "Button.test.tsx", 50, 0.6);
+        assert!(
+            button_similarity > 0,
+            "Button.tsx and Button.test.tsx should have high Jaro-Winkler similarity"
+        );
 
         // Low similarity (below threshold)
-        assert_eq!(calculate_filename_similarity_bonus("Button.tsx", "Modal.tsx", 50, 0.6), 0);
-        assert_eq!(calculate_filename_similarity_bonus("user.rs", "main.rs", 50, 0.6), 0);
+        assert_eq!(
+            calculate_filename_similarity_bonus("Button.tsx", "Modal.tsx", 50, 0.6),
+            0
+        );
+        assert_eq!(
+            calculate_filename_similarity_bonus("user.rs", "main.rs", 50, 0.6),
+            0
+        );
 
         // Same file = no bonus
-        assert_eq!(calculate_filename_similarity_bonus("Button.tsx", "Button.tsx", 50, 0.6), 0);
-        assert_eq!(calculate_filename_similarity_bonus("main.rs", "main.rs", 50, 0.6), 0);
+        assert_eq!(
+            calculate_filename_similarity_bonus("Button.tsx", "Button.tsx", 50, 0.6),
+            0
+        );
+        assert_eq!(
+            calculate_filename_similarity_bonus("main.rs", "main.rs", 50, 0.6),
+            0
+        );
 
         // Invalid files = no bonus
-        assert_eq!(calculate_filename_similarity_bonus("", "Button.tsx", 50, 0.6), 0);
-        assert_eq!(calculate_filename_similarity_bonus("Button.tsx", "", 50, 0.6), 0);
+        assert_eq!(
+            calculate_filename_similarity_bonus("", "Button.tsx", 50, 0.6),
+            0
+        );
+        assert_eq!(
+            calculate_filename_similarity_bonus("Button.tsx", "", 50, 0.6),
+            0
+        );
 
         // Test that threshold works correctly
-        let low_threshold_bonus = calculate_filename_similarity_bonus("data.py", "data_backup.py", 30, 0.3);
-        let high_threshold_bonus = calculate_filename_similarity_bonus("data.py", "data_backup.py", 30, 0.9);
-        assert!(low_threshold_bonus > 0, "Low threshold should allow more matches");
-        assert_eq!(high_threshold_bonus, 0, "High threshold should reject moderate similarity");
+        let low_threshold_bonus =
+            calculate_filename_similarity_bonus("data.py", "data_backup.py", 30, 0.3);
+        let high_threshold_bonus =
+            calculate_filename_similarity_bonus("data.py", "data_backup.py", 30, 0.9);
+        assert!(
+            low_threshold_bonus > 0,
+            "Low threshold should allow more matches"
+        );
+        assert_eq!(
+            high_threshold_bonus, 0,
+            "High threshold should reject moderate similarity"
+        );
     }
-
 
     #[test]
     fn test_calculate_directory_distance_penalty() {
         const PENALTY_PER_LEVEL: i32 = -2;
 
         // No current file = no penalty
-        assert_eq!(calculate_directory_distance_penalty(None, "/path/to/file.txt", PENALTY_PER_LEVEL), 0);
+        assert_eq!(
+            calculate_directory_distance_penalty(None, "/path/to/file.txt", PENALTY_PER_LEVEL),
+            0
+        );
 
         // Same directory = no penalty
         assert_eq!(
@@ -248,13 +301,21 @@ mod tests {
 
         // Completely different paths = 8 levels apart = 8 * penalty
         assert_eq!(
-            calculate_directory_distance_penalty(Some("/a/b/c/d/file.txt"), "/x/y/z/w/file.txt", PENALTY_PER_LEVEL),
+            calculate_directory_distance_penalty(
+                Some("/a/b/c/d/file.txt"),
+                "/x/y/z/w/file.txt",
+                PENALTY_PER_LEVEL
+            ),
             8 * PENALTY_PER_LEVEL
         );
 
         // Files in root directory = same directory = no penalty
         assert_eq!(
-            calculate_directory_distance_penalty(Some("/file1.txt"), "/file2.txt", PENALTY_PER_LEVEL),
+            calculate_directory_distance_penalty(
+                Some("/file1.txt"),
+                "/file2.txt",
+                PENALTY_PER_LEVEL
+            ),
             0
         );
 
