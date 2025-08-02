@@ -58,11 +58,19 @@ function M.setup(config)
     icons = {
       enabled = true,
     },
+    scoring = {
+      same_dir_preference = require('fff.config_utils').DEFAULT_SAME_DIR_PREFERENCE,
+    },
     ui_enabled = true,
   }
 
   local merged_config = vim.tbl_deep_extend('force', default_config, config or {})
   M.config = merged_config
+
+  local config_utils = require('fff.config_utils')
+  config_utils.validate_same_dir_preference(merged_config, config_utils.DEFAULT_SAME_DIR_PREFERENCE)
+  local internal_scoring = config_utils.map_preference_to_scoring(merged_config.scoring.same_dir_preference)
+  merged_config.scoring = vim.tbl_extend('force', merged_config.scoring, internal_scoring)
 
   local db_path = merged_config.frecency.db_path or (vim.fn.stdpath('cache') .. '/fff_nvim')
   local ok, result = pcall(fuzzy.init_db, db_path, true)
@@ -393,13 +401,14 @@ function M.debug_file_ordering()
     if score then
       print(
         string.format(
-          '    Total Score: %d (base=%d, name_bonus=%d, special_bonus=%d, frec=%d, dist=%d)',
+          '    Total Score: %d (base=%d, name_bonus=%d, special_bonus=%d, frec=%d, dist=%d, rel=%d)',
           score.total,
           score.base_score,
           score.filename_bonus,
           score.special_filename_bonus,
           score.frecency_boost,
-          score.distance_penalty
+          score.distance_penalty,
+          score.relation_bonus
         )
       )
     else

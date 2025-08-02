@@ -47,9 +47,17 @@ function M.setup(config)
       height = 0.8,
       width = 0.8,
     },
+    scoring = {
+      same_dir_preference = require('fff.config_utils').DEFAULT_SAME_DIR_PREFERENCE,
+    },
   }
 
   M.config = vim.tbl_deep_extend('force', defaults, config)
+
+  local config_utils = require('fff.config_utils')
+  local internal_scoring = config_utils.map_preference_to_scoring(M.config.scoring.same_dir_preference)
+  M.config.scoring = vim.tbl_extend('force', M.config.scoring, internal_scoring)
+
   M.state.config = M.config
 
   local db_path = vim.fn.stdpath('cache') .. '/fff_nvim'
@@ -105,7 +113,19 @@ function M.search_files(query, max_results, max_threads, current_file)
   max_results = max_results or M.config.max_results
   max_threads = max_threads or M.config.max_threads
 
-  local ok, search_result = pcall(fuzzy.fuzzy_search_files, query, max_results, max_threads, current_file)
+  local distance_penalty = M.config.scoring.directory_distance_penalty
+  local relation_bonus_max = M.config.scoring.filename_similarity_bonus_max
+  local relation_similarity_threshold = M.config.scoring.filename_similarity_threshold
+  local ok, search_result = pcall(
+    fuzzy.fuzzy_search_files,
+    query,
+    max_results,
+    max_threads,
+    current_file,
+    distance_penalty,
+    relation_bonus_max,
+    relation_similarity_threshold
+  )
   if not ok then
     vim.notify('Failed to search files: ' .. tostring(search_result), vim.log.levels.ERROR)
     return {}
@@ -144,6 +164,7 @@ function M.get_file_score(index)
     special_filename_bonus = score.special_filename_bonus or 0,
     frecency_boost = score.frecency_boost or 0,
     distance_penalty = score.distance_penalty or 0,
+    relation_bonus = score.relation_bonus or 0,
     match_type = score.match_type or 'unknown',
   }
 end
