@@ -83,7 +83,7 @@ DEFAULT CONFIGURATION                         *fff.nvim-default-configuration*
       title = 'FFF Files',
       max_results = 60, -- Maximum number of search results
       max_threads = 4, -- Maximum threads for fuzzy search
-    
+
       keymaps = {
         close = '<Esc>',
         select = '<CR>',
@@ -95,7 +95,7 @@ DEFAULT CONFIGURATION                         *fff.nvim-default-configuration*
         preview_scroll_up = '<C-u>',
         preview_scroll_down = '<C-d>',
       },
-    
+
       hl = {
         border = 'FloatBorder',
         normal = 'Normal',
@@ -126,7 +126,7 @@ configuration:
       title = 'FFF Files',  -- Window title
       max_results = 60,     -- Maximum search results to display
       max_threads = 4,      -- Maximum threads for fuzzy search
-    
+
       -- Key mappings (supports both single keys and arrays for multiple bindings)
       keymaps = {
         close = '<Esc>',
@@ -139,7 +139,7 @@ configuration:
         preview_scroll_up = '<C-u>',
         preview_scroll_down = '<C-d>',
       },
-    
+
       -- Highlight groups
       hl = {
         border = 'FloatBorder',
@@ -152,7 +152,12 @@ configuration:
         frecency = 'Number',
         debug = 'Comment',
       },
-    
+
+      -- Scoring configuration
+      scoring = {
+        same_dir_preference = 0.7,  -- How much to prefer files near current file (0.0 - 1.0)
+      },
+
       -- Debug options
       debug = {
         show_scores = false,  -- Toggle with F2 or :FFFDebug
@@ -193,9 +198,9 @@ Toggle scoring information display:
 - Enable by default with `debug.show_scores = true`
 
 >
-    
+
     #### vim-plug
-    
+
     ```vim
     Plug 'MunifTanjim/nui.nvim'
     Plug 'dmtrKovalenko/fff.nvim', { 'do': 'cargo build --release' }
@@ -220,7 +225,7 @@ configuration:
       title = 'FFF Files',  -- Window title
       max_results = 60,     -- Maximum search results to display
       max_threads = 4,      -- Maximum threads for fuzzy search
-    
+
       keymaps = {
         close = '<Esc>',
         select = '<CR>',
@@ -232,7 +237,7 @@ configuration:
         preview_scroll_up = '<C-u>',
         preview_scroll_down = '<C-d>',
       },
-    
+
       hl = {
         border = 'FloatBorder',
         normal = 'Normal',
@@ -244,7 +249,12 @@ configuration:
         frecency = 'Number',
         debug = 'Comment',
       },
-    
+
+      -- Scoring configuration
+      scoring = {
+        same_dir_preference = 0.7,  -- How much to prefer files near current file (0.0 - 1.0)
+      },
+
       debug = {
         show_scores = true,  -- We hope for your collaboratio
       },

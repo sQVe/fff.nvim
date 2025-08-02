@@ -15,7 +15,7 @@
 		<img alt="Contributors" src="https://img.shields.io/github/contributors/dmtrKovalenko/fff.nvim?color=%23DDB6F2&label=CONTRIBUTORS&logo=git&style=for-the-badge&logoColor=D9E0EE&labelColor=302D41"/></a>
 </p>
 
-**FFF** stands for ~freakin fast fuzzy file finder~  (pick 3) and it is an opinionated fuzzy file picker for neovim. Just for files, but we'll try to solve file picking completely.
+**FFF** stands for ~freakin fast fuzzy file finder~ (pick 3) and it is an opinionated fuzzy file picker for neovim. Just for files, but we'll try to solve file picking completely.
 
 It comes with a dedicated rust backend runtime that keep tracks of the file index, your file access and modifications, git status, and provides a comprehensive typo-resistant fuzzy search experience.
 
@@ -143,6 +143,11 @@ require("fff").setup({
     debug = 'Comment',
   },
 
+  -- Scoring configuration
+  scoring = {
+    same_dir_preference = 0.7, -- How much to prefer files near current file (0.0-1.0)
+  },
+
   -- Debug options
   debug = {
     show_scores = false,  -- Toggle with F2 or :FFFDebug
@@ -224,6 +229,11 @@ require("fff").setup({
     active_file = 'Visual',
     frecency = 'Number',
     debug = 'Comment',
+  },
+
+  -- Scoring configuration
+  scoring = {
+    same_dir_preference = 0.7, -- How much to prefer files near current file (0.0-1.0)
   },
 
   debug = {
