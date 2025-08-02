@@ -171,6 +171,8 @@ function M.create_ui()
 
   preview.set_preview_window(M.state.preview_win)
 
+  -- Brief wait to allow immediate sibling files to appear, then render.
+  file_picker.wait_for_initial_scan(50)
   M.update_results_sync()
   M.clear_preview()
   M.update_status()
@@ -490,15 +492,6 @@ function M.update_results() M.update_results_sync() end
 
 function M.update_results_sync()
   if not M.state.active then return end
-
-  if not M.state.current_file_cache then
-    local current_buf = vim.api.nvim_get_current_buf()
-    if current_buf and vim.api.nvim_buf_is_valid(current_buf) then
-      local current_file = vim.api.nvim_buf_get_name(current_buf)
-      M.state.current_file_cache = (current_file ~= '' and vim.fn.filereadable(current_file) == 1) and current_file
-        or nil
-    end
-  end
 
   local results = file_picker.search_files(
     M.state.query,
@@ -1012,11 +1005,9 @@ function M.close()
     M.state.preview_buf,
     M.state.file_info_buf,
   }
-  
+
   for _, buf in ipairs(buffers) do
-    if buf and vim.api.nvim_buf_is_valid(buf) then
-      vim.api.nvim_buf_delete(buf, { force = true })
-    end
+    if buf and vim.api.nvim_buf_is_valid(buf) then vim.api.nvim_buf_delete(buf, { force = true }) end
   end
 
   M.state.input_win = nil
@@ -1053,15 +1044,31 @@ end
 function M.open(opts)
   if M.state.active then return end
 
+  -- Detect current file BEFORE opening picker UI
+  local current_buf = vim.api.nvim_get_current_buf()
+  if current_buf and vim.api.nvim_buf_is_valid(current_buf) then
+    local current_file = vim.api.nvim_buf_get_name(current_buf)
+    if current_file ~= '' and vim.fn.filereadable(current_file) == 1 then
+      -- Convert to relative path to match file picker storage format
+      M.state.current_file_cache = vim.fn.fnamemodify(current_file, ':.')
+    else
+      M.state.current_file_cache = nil
+    end
+  end
+
   if not file_picker.is_initialized() then
-    local config = {
+    -- Get the main config that includes scoring settings
+    local main = require('fff.main')
+    local main_config = main.config or {}
+
+    local config = vim.tbl_deep_extend('force', {
       base_path = opts and opts.cwd or vim.fn.getcwd(),
       max_results = 100,
       frecency = {
         enabled = true,
         db_path = vim.fn.stdpath('cache') .. '/fff_nvim',
       },
-    }
+    }, main_config)
 
     if not file_picker.setup(config) then
       vim.notify('Failed to initialize file picker', vim.log.levels.ERROR)
@@ -1098,11 +1105,6 @@ function M.monitor_scan_progress()
     vim.defer_fn(function() M.monitor_scan_progress() end, 500)
   else
     M.update_results()
-
-    vim.defer_fn(function()
-      local refreshed = file_picker.refresh_git_status()
-      if refreshed and #refreshed > 0 then M.update_results() end
-    end, 500) -- Wait 500ms for git status to complete
   end
 end
 

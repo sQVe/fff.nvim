@@ -231,6 +231,9 @@ impl FilePicker {
         max_results: usize,
         max_threads: usize,
         current_file: Option<String>,
+        distance_penalty: i32,
+        relation_bonus_max: i32,
+        relation_similarity_threshold: f64,
     ) -> Result<SearchResult, Error> {
         let max_threads = max_threads.max(1); // Ensure at least 1 to avoid neo_frizbee division by zero
 
@@ -244,12 +247,25 @@ impl FilePicker {
         let total_files = sync_data.files.len();
 
         // small queries with a large number of results can match absolutely everything
-        let max_typos = (query.len() as u16 / 4).clamp(2, 6);
+        let max_typos = if query.len() <= 4 {
+            0
+        } else {
+            (query.len() as u16 / 5).clamp(1, 3)
+        };
+
+        // Pre-compute current file data for performance optimization.
+        let current_file_data = current_file.as_deref()
+            .and_then(crate::types::CurrentFileData::from_path);
+
         let context = ScoringContext {
             query,
             max_typos,
             max_threads,
             current_file: current_file.as_deref(),
+            current_file_data,
+            directory_distance_penalty: distance_penalty,
+            filename_similarity_bonus_max: relation_bonus_max,
+            filename_similarity_threshold: relation_similarity_threshold,
         };
 
         let scored_indices = match_and_score_files(&sync_data.files, &context);
@@ -614,7 +630,10 @@ fn scan_filesystem(
         })
     });
 
-    let mut files = Arc::try_unwrap(files).unwrap().into_inner().unwrap();
+    let mut files = Arc::try_unwrap(files)
+        .map_err(|_| Error::InvalidPath("Arc unwrap failed - Arc is still shared".to_string()))?
+        .into_inner()
+        .map_err(|_| Error::InvalidPath("Mutex poisoned during file scanning".to_string()))?;
     let walker_time = walker_start.elapsed();
     info!("SCAN: File walking completed in {:?}", walker_time);
 
