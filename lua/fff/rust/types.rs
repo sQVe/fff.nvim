@@ -27,15 +27,45 @@ pub struct Score {
     pub special_filename_bonus: i32,
     pub frecency_boost: i32,
     pub distance_penalty: i32,
+    pub relation_bonus: i32,
     pub match_type: &'static str,
+}
+
+#[derive(Debug, Clone)]
+pub struct CurrentFileData {
+    pub stem: String,
+    pub directory_parts: Vec<String>,
+}
+
+impl CurrentFileData {
+    pub fn from_path(path: &str) -> Option<Self> {
+        use std::path::{Path, Component};
+
+        let path = Path::new(path);
+        let stem = path.file_stem()?.to_str()?.to_string();
+        let dir = path.parent()?;
+
+        let directory_parts: Vec<String> = dir.components()
+            .filter_map(|c| match c {
+                Component::Normal(os_str) => os_str.to_str().map(|s| s.to_string()),
+                _ => None,
+            })
+            .collect();
+
+        Some(CurrentFileData { stem, directory_parts })
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct ScoringContext<'a> {
     pub query: &'a str,
     pub current_file: Option<&'a str>,
+    pub current_file_data: Option<CurrentFileData>,
     pub max_typos: u16,
     pub max_threads: usize,
+    pub directory_distance_penalty: i32,
+    pub filename_similarity_bonus_max: i32,
+    pub filename_similarity_threshold: f64,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -77,6 +107,7 @@ impl IntoLua for Score {
         table.set("special_filename_bonus", self.special_filename_bonus)?;
         table.set("frecency_boost", self.frecency_boost)?;
         table.set("distance_penalty", self.distance_penalty)?;
+        table.set("relation_bonus", self.relation_bonus)?;
         table.set("match_type", self.match_type)?;
         Ok(LuaValue::Table(table))
     }

@@ -1,9 +1,63 @@
 use crate::{
-    git::is_modified_status,
-    path_utils::calculate_distance_penalty,
+    path_utils::{calculate_directory_distance_penalty, calculate_filename_similarity_bonus,
+                calculate_directory_distance_penalty_optimized, calculate_filename_similarity_bonus_optimized},
     types::{FileItem, Score, ScoringContext},
 };
 use rayon::prelude::*;
+
+const MAX_DISTANCE_FOR_SIMILARITY_BONUS: i32 = 2;
+
+fn calculate_proximity_scores(context: &ScoringContext, file: &FileItem) -> (i32, i32) {
+    if let Some(ref current_data) = context.current_file_data {
+        if Some(file.relative_path.as_str()) == context.current_file {
+            return (0, 0);
+        }
+
+        let penalty = calculate_directory_distance_penalty_optimized(
+            &current_data.directory_parts,
+            &file.relative_path,
+            context.directory_distance_penalty,
+        );
+
+        // Only calculate relation bonus for files that are "close" (within MAX_DISTANCE_FOR_SIMILARITY_BONUS levels).
+        // This gates the expensive Jaro-Winkler calculation for performance.
+        let bonus = if penalty / context.directory_distance_penalty <= MAX_DISTANCE_FOR_SIMILARITY_BONUS {
+            calculate_filename_similarity_bonus_optimized(
+                &current_data.stem,
+                &file.relative_path,
+                context.filename_similarity_bonus_max,
+                context.filename_similarity_threshold,
+            )
+        } else {
+            0
+        };
+
+        (penalty, bonus)
+    } else {
+        // Fallback to original functions if no pre-computed data.
+        let penalty = calculate_directory_distance_penalty(
+            context.current_file,
+            &file.relative_path,
+            context.directory_distance_penalty,
+        );
+
+        let bonus = if penalty / context.directory_distance_penalty <= MAX_DISTANCE_FOR_SIMILARITY_BONUS {
+            match context.current_file {
+                Some(current_file) => calculate_filename_similarity_bonus(
+                    current_file,
+                    &file.relative_path,
+                    context.filename_similarity_bonus_max,
+                    context.filename_similarity_threshold,
+                ),
+                None => 0,
+            }
+        } else {
+            0
+        };
+
+        (penalty, bonus)
+    }
+}
 
 pub fn match_and_score_files(files: &[FileItem], context: &ScoringContext) -> Vec<(usize, Score)> {
     if context.query.len() < 2 {
@@ -65,10 +119,7 @@ pub fn match_and_score_files(files: &[FileItem], context: &ScoringContext) -> Ve
 
             let base_score = neo_frizbee_match.score as i32;
             let frecency_boost = base_score.saturating_mul(file.total_frecency_score as i32) / 100;
-            let distance_penalty = calculate_distance_penalty(
-                &context.current_file.map(|s| s.to_string()),
-                &file.relative_path,
-            );
+            let (distance_penalty, relation_bonus) = calculate_proximity_scores(context, file);
 
             let filename_match = filename_matches
                 .get(next_filename_match_index)
@@ -100,7 +151,8 @@ pub fn match_and_score_files(files: &[FileItem], context: &ScoringContext) -> Ve
             let total = base_score
                 .saturating_add(frecency_boost)
                 .saturating_add(distance_penalty)
-                .saturating_add(filename_bonus);
+                .saturating_add(filename_bonus)
+                .saturating_add(relation_bonus);
 
             let score = Score {
                 total,
@@ -113,6 +165,7 @@ pub fn match_and_score_files(files: &[FileItem], context: &ScoringContext) -> Ve
                 },
                 frecency_boost,
                 distance_penalty,
+                relation_bonus,
                 match_type: match filename_match {
                     Some(filename_match) if filename_match.exact => "exact_filename",
                     Some(_) => "fuzzy_filename",
@@ -154,12 +207,8 @@ fn score_all_by_frecency(files: &[FileItem], context: &ScoringContext) -> Vec<(u
             let total_frecency_score = file.access_frecency_score as i32
                 + (file.modification_frecency_score as i32).saturating_mul(4);
 
-            let distance_penalty = calculate_distance_penalty(
-                &context.current_file.map(|s| s.to_string()),
-                &file.relative_path,
-            );
-
-            let total = total_frecency_score.saturating_add(distance_penalty);
+            let (distance_penalty, relation_bonus) = calculate_proximity_scores(context, file);
+            let total = total_frecency_score.saturating_add(distance_penalty).saturating_add(relation_bonus);
             let score = Score {
                 total,
                 base_score: 0,
@@ -167,29 +216,11 @@ fn score_all_by_frecency(files: &[FileItem], context: &ScoringContext) -> Vec<(u
                 special_filename_bonus: 0,
                 frecency_boost: total_frecency_score,
                 distance_penalty,
+                relation_bonus,
                 match_type: "frecency",
             };
 
             (idx, score)
         })
         .collect()
-}
-
-#[inline]
-#[allow(dead_code)]
-fn calculate_file_bonus(file: &FileItem, context: &ScoringContext) -> i32 {
-    let mut bonus = 0i32;
-
-    if let Some(current) = context.current_file {
-        let is_current = file.relative_path == current || file.relative_path == current;
-
-        if is_current {
-            bonus -= match file.git_status {
-                Some(status) if is_modified_status(status) => 150,
-                _ => 300,
-            };
-        }
-    }
-
-    bonus
 }
