@@ -158,7 +158,7 @@ end
 --- @return number|nil, number|nil Width and height in pixels
 function M.get_image_dimensions(file_path)
   -- Try file command first
-  local cmd = string.format('file "%s"', file_path)
+  local cmd = string.format('file %s', vim.fn.shellescape(file_path))
   local result = vim.fn.system(cmd)
 
   if vim.v.shell_error == 0 then
@@ -167,7 +167,7 @@ function M.get_image_dimensions(file_path)
   end
 
   -- Fallback to identify command (ImageMagick)
-  cmd = string.format('identify -format "%%w %%h" "%s" 2>/dev/null', file_path)
+  cmd = string.format('identify -format "%%w %%h" %s 2>/dev/null', vim.fn.shellescape(file_path))
   result = vim.fn.system(cmd)
 
   if vim.v.shell_error == 0 then

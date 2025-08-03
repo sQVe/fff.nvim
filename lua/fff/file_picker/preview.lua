@@ -323,7 +323,7 @@ end
 --- @return table|nil Lines of content, nil if failed
 function M.read_file_tail(file_path, tail_lines)
   -- Use system tail command for efficiency
-  local cmd = string.format('tail -n %d "%s" 2>/dev/null', tail_lines, file_path)
+  local cmd = string.format('tail -n %d %s 2>/dev/null', tail_lines, vim.fn.shellescape(file_path))
   local result = vim.fn.system(cmd)
 
   if vim.v.shell_error ~= 0 then
@@ -488,7 +488,7 @@ function M.preview_binary_file(file_path, bufnr, info, file)
 
   -- Try to get more information about the binary file
   if vim.fn.executable('file') == 1 then
-    local cmd = string.format('file -b "%s"', file_path)
+    local cmd = string.format('file -b %s', vim.fn.shellescape(file_path))
     local result = vim.fn.system(cmd)
     if vim.v.shell_error == 0 and result then
       result = result:gsub('\n', '')
@@ -502,7 +502,7 @@ function M.preview_binary_file(file_path, bufnr, info, file)
     table.insert(lines, 'Hex dump (first 1KB):')
     table.insert(lines, '')
 
-    local cmd = string.format('xxd -l 1024 "%s"', file_path)
+    local cmd = string.format('xxd -l 1024 %s', vim.fn.shellescape(file_path))
     local hex_result = vim.fn.system(cmd)
     if vim.v.shell_error == 0 and hex_result then
       local hex_lines = vim.split(hex_result, '\n')
