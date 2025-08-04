@@ -1,6 +1,6 @@
 use git2::{Repository, Status, StatusOptions};
 use std::path::{Path, PathBuf};
-use tracing::{error, info};
+use tracing::error;
 
 #[derive(Debug, Clone)]
 pub struct GitStatusCache {
@@ -27,14 +27,10 @@ impl GitStatusCache {
     }
 
     pub fn read_git_status(git_workdir: Option<&Path>) -> Option<Self> {
-        let git_start = std::time::Instant::now();
-        info!("GIT: Starting git status read");
-
-        let mut entries = Vec::new();
+        let mut entries = Vec::with_capacity(256);
         let git_workdir = git_workdir.as_ref()?;
         let repository = Repository::open(git_workdir).ok()?;
 
-        let status_start = std::time::Instant::now();
         let statuses = repository
             .statuses(Some(&mut StatusOptions::new().include_untracked(true)))
             .map_err(|e| {
@@ -42,14 +38,6 @@ impl GitStatusCache {
                 e
             })
             .ok()?;
-        let status_time = status_start.elapsed();
-        info!("GIT: Status query completed in {:?}", status_time);
-
-        info!(
-            "GIT STATUS: {} git entries in {}",
-            statuses.len(),
-            git_workdir.display()
-        );
 
         for entry in &statuses {
             if let Some(entry_path) = entry.path() {
@@ -57,9 +45,6 @@ impl GitStatusCache {
                 entries.push((full_path, entry.status()));
             }
         }
-
-        let total_time = git_start.elapsed();
-        info!("GIT: Total git status read time {:?}", total_time);
 
         Some(Self::from_git_entries(entries))
     }

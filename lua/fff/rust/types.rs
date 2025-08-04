@@ -47,6 +47,7 @@ pub struct SearchResult {
 }
 
 impl IntoLua for FileItem {
+    #[inline]
     fn into_lua(self, lua: &Lua) -> LuaResult<LuaValue> {
         let table = lua.create_table()?;
         table.set("path", self.path.to_string_lossy().to_string())?;
@@ -69,6 +70,7 @@ impl IntoLua for FileItem {
 }
 
 impl IntoLua for Score {
+    #[inline]
     fn into_lua(self, lua: &Lua) -> LuaResult<LuaValue> {
         let table = lua.create_table()?;
         table.set("total", self.total)?;
@@ -83,6 +85,7 @@ impl IntoLua for Score {
 }
 
 impl IntoLua for SearchResult {
+    #[inline]
     fn into_lua(self, lua: &Lua) -> LuaResult<LuaValue> {
         let table = lua.create_table()?;
         table.set("items", self.items)?;

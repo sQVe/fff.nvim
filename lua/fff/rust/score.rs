@@ -5,6 +5,12 @@ use crate::{
 };
 use rayon::prelude::*;
 
+const EXACT_FILENAME_BONUS_DIVISOR: i32 = 5;
+const EXACT_FILENAME_BONUS_MULTIPLIER: i32 = 2;
+const FUZZY_FILENAME_BONUS_DIVISOR: i32 = 5;
+const SPECIAL_ENTRY_BONUS_PERCENT: i32 = 18;
+
+#[inline]
 pub fn match_and_score_files(files: &[FileItem], context: &ScoringContext) -> Vec<(usize, Score)> {
     if context.query.len() < 2 {
         return score_all_by_frecency(files, context);
@@ -20,117 +26,86 @@ pub fn match_and_score_files(files: &[FileItem], context: &ScoringContext) -> Ve
         sort: false,
     };
 
-    let haystack: Vec<&str> = files.iter().map(|f| f.relative_path.as_str()).collect();
-    tracing::debug!(
-        "Starting fuzzy search for query '{}' in {} files",
-        context.query,
-        haystack.len()
-    );
+    // Unified matching: search paths first, then check filenames for matched files.
+    let mut haystack = Vec::with_capacity(files.len());
+    haystack.extend(files.iter().map(|f| f.relative_path.as_str()));
     let path_matches =
         neo_frizbee::match_list_parallel(context.query, &haystack, options, context.max_threads);
-    tracing::debug!(
-        "Matched {} files for query '{}'",
-        path_matches.len(),
-        context.query
-    );
 
-    // assume that filename should only match if the path matches
-    // we should actually incorporate this bonus by getting this information from neo_frizbee directly
-    // instead of spawning a separate matching process, but it's okay for the beta
-    let haystack_of_filenames = path_matches
-        .par_iter()
-        .filter_map(|m| {
-            files
-                .get(m.index_in_haystack as usize)
-                .map(|f| f.file_name.as_str())
-        })
-        .collect::<Vec<_>>();
+    let mut results = Vec::with_capacity(path_matches.len());
 
-    let mut filename_matches = neo_frizbee::match_list_parallel(
-        context.query,
-        &haystack_of_filenames,
-        options,
-        context.max_threads,
-    );
+    for neo_frizbee_match in path_matches {
+        let file_idx = neo_frizbee_match.index_in_haystack as usize;
+        let file = &files[file_idx];
 
-    filename_matches.par_sort_by_key(|m| m.index_in_haystack);
-    let mut next_filename_match_index = 0;
-    let mut results: Vec<_> = path_matches
-        .into_iter()
-        .enumerate()
-        .map(|(index, neo_frizbee_match)| {
-            let file_idx = neo_frizbee_match.index_in_haystack as usize;
-            let file = &files[file_idx];
+        let base_score = neo_frizbee_match.score as i32;
+        let frecency_boost = base_score.saturating_mul(file.total_frecency_score as i32) / 100;
+        let distance_penalty = calculate_distance_penalty(
+            context.current_file.map(|s| s.as_str()),
+            &file.relative_path,
+        );
 
-            let base_score = neo_frizbee_match.score as i32;
-            let frecency_boost = base_score.saturating_mul(file.total_frecency_score as i32) / 100;
-            let distance_penalty = calculate_distance_penalty(
-                context.current_file.map(|s| s.as_str()),
-                &file.relative_path,
-            );
+        let (filename_bonus, match_type, has_special_bonus) =
+            calculate_filename_bonus(context.query, &file.file_name, base_score);
 
-            let filename_match = filename_matches
-                .get(next_filename_match_index)
-                .and_then(|m| {
-                    if m.index_in_haystack == index as u32 {
-                        next_filename_match_index += 1;
-                        Some(m)
-                    } else {
-                        None
-                    }
-                });
+        let total = base_score
+            .saturating_add(frecency_boost)
+            .saturating_add(distance_penalty)
+            .saturating_add(filename_bonus);
 
-            tracing::debug!(filename_match = ?filename_match, "Filename match for file {}", index);
+        let score = Score {
+            total,
+            base_score,
+            filename_bonus,
+            special_filename_bonus: if has_special_bonus { filename_bonus } else { 0 },
+            frecency_boost,
+            distance_penalty,
+            match_type,
+        };
 
-            let mut has_special_filename_bonus = false;
-            let filename_bonus = match filename_match {
-                Some(filename_match) if filename_match.exact => {
-                    base_score / 5 * 2 // 40% bonus for exact filename match
-                }
-                Some(_) => base_score / 5, // 20% bonus for fuzzy filename match
-                None if is_special_entry_point_file(&file.file_name) => {
-                    // 18% bonus special filename just as much as exact path
-                    // but a little bit less to give preference to the actual file if present
-                    has_special_filename_bonus = true;
-                    base_score * 18 / 100
-                }
-                None => 0,
-            };
+        results.push((file_idx, score));
+    }
 
-            let total = base_score
-                .saturating_add(frecency_boost)
-                .saturating_add(distance_penalty)
-                .saturating_add(filename_bonus);
-
-            let score = Score {
-                total,
-                base_score,
-                filename_bonus,
-                special_filename_bonus: if has_special_filename_bonus {
-                    filename_bonus
-                } else {
-                    0
-                },
-                frecency_boost,
-                distance_penalty,
-                match_type: match filename_match {
-                    Some(filename_match) if filename_match.exact => "exact_filename",
-                    Some(_) => "fuzzy_filename",
-                    None => "fuzzy_path",
-                },
-            };
-
-            (file_idx, score)
-        })
-        .collect();
-
-    results.par_sort_by(|a, b| b.1.total.cmp(&a.1.total));
+    results.par_sort_unstable_by(|a, b| b.1.total.cmp(&a.1.total));
 
     results
 }
 
-/// Check if a filename is a special entry point file that deserves bonus scoring
-/// These are typically files that serve as module exports or entry points
+#[inline]
+fn calculate_filename_bonus(
+    query: &str,
+    filename: &str,
+    base_score: i32,
+) -> (i32, &'static str, bool) {
+    if filename.eq_ignore_ascii_case(query) {
+        return (
+            base_score / EXACT_FILENAME_BONUS_DIVISOR * EXACT_FILENAME_BONUS_MULTIPLIER,
+            "exact_filename",
+            false,
+        );
+    }
+
+    if filename.to_lowercase().contains(&query.to_lowercase()) {
+        return (
+            base_score / FUZZY_FILENAME_BONUS_DIVISOR,
+            "fuzzy_filename",
+            false,
+        );
+    }
+
+    if is_special_entry_point_file(filename) {
+        return (
+            base_score * SPECIAL_ENTRY_BONUS_PERCENT / 100,
+            "fuzzy_path",
+            true,
+        );
+    }
+
+    (0, "fuzzy_path", false)
+}
+
+
+#[inline]
 fn is_special_entry_point_file(filename: &str) -> bool {
     matches!(
         filename,
