@@ -10,6 +10,7 @@ use tracing::{debug, info};
 
 use crate::file_picker::{
     fuzzy_search_with_snapshot, scan_filesystem, spawn_background_watcher, FileSnapshot, FileSync,
+    update_search_snapshot_from_sync,
 };
 
 pub struct FilePicker {
@@ -114,13 +115,14 @@ impl FilePicker {
 
         std::thread::spawn(move || {
             if let Ok((files, git_cache)) = scan_filesystem(&base_path, git_workdir.as_ref()) {
+                let sorted_files = FileSync::prepare_files_for_update(files);
+
                 if let Ok(mut data) = sync_data.write() {
-                    data.update_files(files, git_cache);
-                    
-                    let new_snapshot = data.create_search_snapshot();
-                    if let Ok(mut snapshot_guard) = search_snapshot.write() {
-                        *snapshot_guard = *new_snapshot;
-                    }
+                    data.update_files(sorted_files, git_cache);
+                }
+
+                if let Err(e) = update_search_snapshot_from_sync(&sync_data, &search_snapshot) {
+                    tracing::error!("Failed to update search snapshot: {}", e);
                 }
             } else {
                 tracing::warn!("Filesystem scan failed");

@@ -11,7 +11,7 @@ use std::thread;
 use std::time::Duration;
 use tracing::{debug, error, info};
 
-use super::core::{FileSnapshot, FileSync};
+use super::core::{FileSnapshot, FileSync, update_search_snapshot_from_sync};
 use super::scanner::{scan_filesystem, should_add_new_file};
 
 pub fn spawn_background_watcher(
@@ -35,15 +35,16 @@ pub fn spawn_background_watcher(
                     "SCAN_COMPLETE: Initial parallel filesystem scan completed: found {} files in {:?}",
                     files.len(), scan_duration
                 );
-                if let Ok(mut data) = sync_data.write() {
-                    data.update_files(files, git_cache);
-                    debug!("SCAN_COMPLETE: Initial file cache updated successfully");
 
-                    // Create safe snapshot for search operations.
-                    let new_snapshot = data.create_search_snapshot();
-                    if let Ok(mut snapshot_guard) = search_snapshot.write() {
-                        *snapshot_guard = *new_snapshot;
-                    }
+                let sorted_files = FileSync::prepare_files_for_update(files);
+
+                if let Ok(mut data) = sync_data.write() {
+                    data.update_files(sorted_files, git_cache);
+                    debug!("SCAN_COMPLETE: Initial file cache updated successfully");
+                }
+
+                if let Err(e) = update_search_snapshot_from_sync(&sync_data, &search_snapshot) {
+                    error!("Failed to update search snapshot: {}", e);
                 }
             }
             Err(e) => {
@@ -91,9 +92,21 @@ pub fn spawn_background_watcher(
         }
 
         let (shutdown_mutex, condvar) = &*shutdown_condvar;
-        let mut shutdown_flag = shutdown_mutex.lock().unwrap();
+        let mut shutdown_flag = match shutdown_mutex.lock() {
+            Ok(flag) => flag,
+            Err(poisoned) => {
+                error!("Shutdown mutex poisoned, recovering: {:?}", poisoned);
+                poisoned.into_inner()
+            }
+        };
         while !*shutdown_flag {
-            shutdown_flag = condvar.wait(shutdown_flag).unwrap();
+            shutdown_flag = match condvar.wait(shutdown_flag) {
+                Ok(flag) => flag,
+                Err(poisoned) => {
+                    error!("Condvar wait poisoned, recovering: {:?}", poisoned);
+                    poisoned.into_inner()
+                }
+            };
         }
     })
 }
@@ -197,11 +210,10 @@ pub fn handle_create_events(
             sync_write.insert_file_sorted(file_item);
             // Note: frecency will be updated in batch when snapshot is created.
         }
+    }
 
-        let new_snapshot = sync_write.create_search_snapshot();
-        if let Ok(mut snapshot_guard) = search_snapshot.write() {
-            *snapshot_guard = *new_snapshot;
-        }
+    if let Err(e) = update_search_snapshot_from_sync(&sync_data, &search_snapshot) {
+        error!("Failed to update search snapshot: {}", e);
     }
 }
 
@@ -218,11 +230,10 @@ pub fn remove_paths_from_index(
                 sync_write.remove_file_by_path(&relative_str);
             }
         }
+    }
 
-        let new_snapshot = sync_write.create_search_snapshot();
-        if let Ok(mut snapshot_guard) = search_snapshot.write() {
-            *snapshot_guard = *new_snapshot;
-        }
+    if let Err(e) = update_search_snapshot_from_sync(&sync_data, &search_snapshot) {
+        error!("Failed to update search snapshot: {}", e);
     }
 }
 
@@ -261,6 +272,9 @@ pub fn update_git_status_for_paths(
     };
 
     if let Ok(mut sync_write) = sync_data.write() {
+        let mut updated_indices = Vec::new();
+
+        // First pass: update git status and collect indices.
         for status_entry in statuses.iter() {
             let Some(file_path) = status_entry.path() else {
                 continue;
@@ -268,14 +282,31 @@ pub fn update_git_status_for_paths(
 
             if let Ok(index) = sync_write.find_file_index(file_path) {
                 sync_write.files[index].git_status = Some(status_entry.status());
-                // Individual frecency update for git status changes.
-                sync_write.files[index].update_frecency_scores();
+                updated_indices.push(index);
             }
         }
 
-        let new_snapshot = sync_write.create_search_snapshot();
-        if let Ok(mut snapshot_guard) = search_snapshot.write() {
-            *snapshot_guard = *new_snapshot;
+        // Second pass: batch frecency update for all modified files.
+        if !updated_indices.is_empty() {
+            if let Ok(frecency) = crate::FRECENCY.read() {
+                if let Some(ref tracker) = *frecency {
+                    for &index in &updated_indices {
+                        let file = &mut sync_write.files[index];
+                        let file_key = crate::file_key::FileKey::from(&*file);
+                        file.access_frecency_score = tracker.get_access_score(&file_key);
+                        file.modification_frecency_score = tracker.get_modification_score(
+                            file.modified,
+                            crate::git::format_git_status(file.git_status),
+                        );
+                        file.total_frecency_score =
+                            file.access_frecency_score + file.modification_frecency_score;
+                    }
+                }
+            }
         }
+    }
+
+    if let Err(e) = update_search_snapshot_from_sync(&sync_data, &search_snapshot) {
+        error!("Failed to update search snapshot: {}", e);
     }
 }
