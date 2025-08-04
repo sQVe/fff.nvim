@@ -3,7 +3,7 @@
 
 local M = {}
 
-function M.create_file_info_content(file, info, file_index)
+function M.create_file_info_content(file, info, file_index, score)
   local lines = {}
 
   local main = require('fff.main')
@@ -11,7 +11,6 @@ function M.create_file_info_content(file, info, file_index)
   local debug_mode = config and config.debug and config.debug.show_scores
 
   if debug_mode then
-    local score = nil
 
     table.insert(
       lines,

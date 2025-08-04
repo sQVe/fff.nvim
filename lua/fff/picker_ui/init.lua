@@ -299,7 +299,16 @@ function M.render_complete_ui()
 
   local results = {}
   if ok and search_result and search_result.items then
-    results = search_result.items
+    -- If scores are available and lengths match, merge them into the items
+    if search_result.scores and #search_result.scores == #search_result.items then
+      for i, item in ipairs(search_result.items) do
+        item.score = search_result.scores[i]
+        table.insert(results, item)
+      end
+    else
+      -- Fallback if scores are missing or mismatched, to prevent errors
+      results = search_result.items
+    end
   elseif not ok then
     vim.notify('Search failed: ' .. tostring(search_result), vim.log.levels.ERROR)
   end

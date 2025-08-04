@@ -297,7 +297,7 @@ function M.update_file_info_buffer(file, bufnr, file_index)
     return false
   end
 
-  local file_info_lines = info.create_file_info_content(file, file_info, file_index)
+  local file_info_lines = info.create_file_info_content(file, file_info, file_index, file.score)
   safe_set_buffer_lines(bufnr, 0, -1, false, file_info_lines)
 
   -- Set buffer options
