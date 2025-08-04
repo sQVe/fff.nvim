@@ -1,6 +1,4 @@
 use crate::error::Error;
-use crate::git::GitStatusCache;
-use crate::types::{FileItem, SearchResult};
 use git2::Repository;
 use std::path::{Path, PathBuf};
 use std::sync::{
@@ -12,7 +10,6 @@ use tracing::{debug, info};
 
 use crate::file_picker::{
     fuzzy_search_with_snapshot, scan_filesystem, spawn_background_watcher, FileSnapshot, FileSync,
-    ScanProgress,
 };
 
 pub struct FilePicker {
@@ -86,6 +83,40 @@ impl FilePicker {
         })
     }
 
+    pub fn fuzzy_search(
+        &self,
+        query: &str,
+        max_results: usize,
+        max_threads: usize,
+        current_file: Option<&String>,
+    ) -> crate::types::SearchResult {
+        fuzzy_search_with_snapshot(&self.search_snapshot, query, max_results, max_threads, current_file)
+    }
+
+    pub fn get_cached_files(&self) -> Vec<crate::types::FileItem> {
+        if let Ok(sync_data) = self.sync_data.read() {
+            sync_data.files.clone()
+        } else {
+            Vec::new()
+        }
+    }
+
+    pub fn trigger_rescan(&self) -> Result<(), crate::error::Error> {
+        // Start a manual rescan by spawning a scan task
+        let base_path = self.base_path.clone();
+        let git_workdir = self.git_workdir.clone();
+        let sync_data = Arc::clone(&self.sync_data);
+        let search_snapshot = Arc::clone(&self.search_snapshot);
+        let scan_signal = Arc::clone(&self.is_scanning);
+
+        scan_signal.store(true, Ordering::Relaxed);
+        tracing::info!("is_scanning = TRUE (manual rescan triggered)");
+
+        std::thread::spawn(move || {
+            if let Ok((files, git_cache)) = scan_filesystem(&base_path, git_workdir.as_ref()) {
+                if let Ok(mut data) = sync_data.write() {
+                    data.update_files(files, git_cache);
+                    
                     let new_snapshot = data.create_search_snapshot();
                     if let Ok(mut snapshot_guard) = search_snapshot.write() {
                         *snapshot_guard = *new_snapshot;
@@ -96,10 +127,30 @@ impl FilePicker {
             }
 
             scan_signal.store(false, Ordering::Relaxed);
-            info!("is_scanning = FALSE (manual rescan completed)");
+            tracing::info!("is_scanning = FALSE (manual rescan completed)");
         });
 
         Ok(())
+    }
+
+    pub fn get_scan_progress(&self) -> crate::file_picker::ScanProgress {
+        let is_scanning = self.is_scan_active();
+        let (total_files, scanned_files) = if let Ok(sync_data) = self.sync_data.read() {
+            (sync_data.files.len(), sync_data.files.len())
+        } else {
+            (0, 0)
+        };
+
+        crate::file_picker::ScanProgress {
+            total_files,
+            scanned_files,
+            is_scanning,
+        }
+    }
+
+    pub fn refresh_git_status(&self) -> Vec<crate::types::FileItem> {
+        // For now, just return the cached files - a full implementation would re-scan git status
+        self.get_cached_files()
     }
 
     #[inline]
