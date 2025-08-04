@@ -4,10 +4,61 @@ use crate::types::{FileItem, ScoringContext, SearchResult};
 use git2::Status;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
-use std::time::SystemTime;
-use tracing::debug;
+use std::time::{SystemTime, Duration};
+use tracing::{debug, warn};
 
 use crate::FRECENCY;
+
+pub fn create_snapshot_from_data(files: Vec<FileItem>, generation: u64) -> Arc<RwLock<FileSnapshot>> {
+    Arc::new(RwLock::new(FileSnapshot { files, generation }))
+}
+
+/// Safely update search snapshot from sync data with proper lock ordering.
+/// This function encapsulates the common pattern of cloning data from sync_data
+/// and updating search_snapshot while avoiding deadlocks.
+pub fn update_search_snapshot_from_sync(
+    sync_data: &Arc<RwLock<FileSync>>,
+    search_snapshot: &Arc<RwLock<FileSnapshot>>,
+) -> Result<(), &'static str> {
+    // Acquire sync_data lock, clone necessary data, release immediately.
+    let (files_clone, generation) = {
+        let sync_guard = sync_data.read()
+            .map_err(|_| "Failed to acquire sync_data read lock")?;
+        (sync_guard.files.clone(), sync_guard.scan_generation)
+    };
+
+    // Now safely update search snapshot with released sync lock.
+    let mut snapshot_guard = search_snapshot.write()
+        .map_err(|_| "Failed to acquire search_snapshot write lock")?;
+    *snapshot_guard = FileSnapshot { files: files_clone, generation };
+
+    Ok(())
+}
+
+/// Safely try to acquire a read lock with timeout.
+pub fn try_read_snapshot_with_timeout(
+    snapshot_arc: &Arc<RwLock<FileSnapshot>>,
+    timeout: Duration,
+) -> Result<Arc<FileSnapshot>, &'static str> {
+    let start = std::time::Instant::now();
+    loop {
+        match snapshot_arc.try_read() {
+            Ok(guard) => {
+                let snapshot_data = FileSnapshot {
+                    files: guard.files.clone(),
+                    generation: guard.generation,
+                };
+                return Ok(Arc::new(snapshot_data));
+            }
+            Err(_) => {
+                if start.elapsed() > timeout {
+                    return Err("Timeout acquiring read lock on snapshot");
+                }
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct FileSync {
@@ -17,7 +68,6 @@ pub struct FileSync {
     pub scan_generation: u64,
 }
 
-// Lock-free snapshot for search operations.
 #[derive(Debug)]
 pub struct FileSnapshot {
     pub files: Vec<FileItem>,
@@ -51,10 +101,11 @@ impl FileSync {
 
     pub fn update_files(
         &mut self,
-        mut files: Vec<FileItem>,
+        files: Vec<FileItem>,
         git_status_cache: Option<GitStatusCache>,
     ) {
-        files.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
+        debug_assert!(files.windows(2).all(|w| w[0].relative_path <= w[1].relative_path),
+                     "Files should be pre-sorted by relative_path");
 
         self.files = files;
         self.git_status_cache = git_status_cache;
@@ -64,11 +115,24 @@ impl FileSync {
         self.batch_update_frecency_scores();
     }
 
+    pub fn prepare_files_for_update(mut files: Vec<FileItem>) -> Vec<FileItem> {
+        files.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
+        files
+    }
+
     pub fn create_search_snapshot(&self) -> Box<FileSnapshot> {
         Box::new(FileSnapshot {
             files: self.files.clone(),
             generation: self.scan_generation,
         })
+    }
+
+    /// Create a new snapshot Arc outside of any locks for atomic swapping
+    pub fn create_search_snapshot_arc(&self) -> Arc<RwLock<FileSnapshot>> {
+        Arc::new(RwLock::new(FileSnapshot {
+            files: self.files.clone(),
+            generation: self.scan_generation,
+        }))
     }
 
     pub fn contains_path(&self, path: &str) -> bool {
@@ -218,10 +282,11 @@ pub fn fuzzy_search_with_snapshot(
 
     let time = std::time::Instant::now();
 
-    let snapshot = match snapshot_arc.read() {
-        Ok(snapshot_guard) => snapshot_guard,
-        Err(_) => {
-            debug!("Failed to acquire snapshot read lock");
+    let timeout = Duration::from_millis(100);
+    let snapshot = match try_read_snapshot_with_timeout(snapshot_arc, timeout) {
+        Ok(snapshot_arc) => snapshot_arc,
+        Err(e) => {
+            warn!("Failed to acquire snapshot read lock: {}", e);
             return SearchResult::default();
         }
     };
