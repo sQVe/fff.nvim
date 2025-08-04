@@ -75,7 +75,10 @@ pub fn scan_filesystem(
             })
         });
 
-        let mut files = Arc::try_unwrap(files).unwrap().into_inner().unwrap();
+        let mut files = Arc::try_unwrap(files)
+            .map_err(|_| Error::InvalidPath("Failed to unwrap Arc<Mutex<Vec<FileItem>>>".to_string()))?
+            .into_inner()
+            .map_err(|_| Error::InvalidPath("Failed to unwrap Mutex<Vec<FileItem>>".to_string()))?;
         let walker_time = walker_start.elapsed();
         info!(
             "SCAN_WALK: File walking completed in {:?} with {} files",

@@ -42,7 +42,13 @@ pub fn init_tracing(log_file_path: &str, log_level: &str) -> Result<String, Erro
     };
 
     TRACING_INITIALIZED.call_once(|| {
-        let file_appender = std::fs::File::create(&log_file_path_clone).unwrap();
+        let file_appender = match std::fs::File::create(&log_file_path_clone) {
+            Ok(file) => file,
+            Err(e) => {
+                eprintln!("Warning: Failed to create log file {}: {}. Logging will be disabled.", log_file_path_clone, e);
+                return;
+            }
+        };
         let (non_blocking_appender, _guard) = non_blocking(file_appender);
 
         let subscriber = tracing_subscriber::registry()

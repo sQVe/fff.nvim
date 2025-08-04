@@ -7,7 +7,7 @@ use heed::{
 use heed::{Database, Env, EnvOpenOptions};
 use std::collections::VecDeque;
 use std::fs;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const DECAY_CONSTANT: f64 = 0.0693; // ln(2)/10 for 10-day half-life
 const SECONDS_PER_DAY: f64 = 86400.0;
@@ -61,7 +61,7 @@ impl FrecencyTracker {
     fn get_now(&self) -> u64 {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or_else(|_| Duration::from_secs(0))
             .as_secs()
     }
 
