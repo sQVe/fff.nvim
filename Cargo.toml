@@ -7,10 +7,14 @@ edition = "2021"
 path = "lua/fff/rust/lib.rs"
 crate-type = ["cdylib", "rlib"]
 
-[[bin]]
-name = "test_watcher"
-path = "src/bin/test_watcher.rs"
 
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+
+# Note: target-cpu = "native" should be set via RUSTFLAGS environment variable:
+# RUSTFLAGS="-C target-cpu=native" cargo build --release
 
 [dependencies]
 blake3 = "1.8.2"

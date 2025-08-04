@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::file_key::FileKey;
-use crate::file_picker::FilePicker;
+use crate::file_picker_main::FilePicker;
 use crate::frecency::FrecencyTracker;
 use crate::types::{FileItem, SearchResult};
 use mlua::prelude::*;
@@ -10,6 +10,7 @@ use std::time::Duration;
 mod error;
 mod file_key;
 mod file_picker;
+mod file_picker_main;
 mod frecency;
 mod git;
 mod path_utils;
