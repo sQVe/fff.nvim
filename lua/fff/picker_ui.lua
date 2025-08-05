@@ -6,6 +6,18 @@ local icons = require('fff.file_picker.icons')
 local git_utils = require('fff.git_utils')
 local main = require('fff.main')
 
+local function get_prompt_position()
+  local config = M.state.config
+
+  if config and config.layout and config.layout.prompt_position then
+    local pos = config.layout.prompt_position
+
+    if pos == 'top' or pos == 'bottom' then return pos end
+  end
+
+  return 'bottom'
+end
+
 -- Initialize preview with main config
 if main.config and main.config.preview then preview.setup(main.config.preview) end
 
@@ -63,6 +75,17 @@ function M.create_ui()
   local list_width = width - preview_width - 3 -- Account for separators
   local list_height = height - 4 -- Same as list window height
 
+  local prompt_position = get_prompt_position()
+  local list_row, input_row
+
+  if prompt_position == 'top' then
+    input_row = row + 1
+    list_row = row + 3
+  else
+    list_row = row + 1
+    input_row = row + height - 2
+  end
+
   local file_info_height = 0
   local preview_height = list_height
   if debug_enabled_in_preview then
@@ -86,7 +109,7 @@ function M.create_ui()
     width = list_width,
     height = list_height, -- Use calculated list height
     col = col + 1,
-    row = row + 1,
+    row = list_row,
     border = 'single',
     style = 'minimal',
     title = ' Files ',
@@ -131,7 +154,7 @@ function M.create_ui()
     width = list_width,
     height = 1,
     col = col + 1,
-    row = row + height - 2,
+    row = input_row, -- Use calculated row position based on prompt_position
     border = 'single',
     style = 'minimal',
   })
@@ -586,14 +609,22 @@ function M.render_list()
     table.insert(items_to_show, items[i])
   end
 
-  local reversed_items = {}
-  for i = #items_to_show, 1, -1 do
-    table.insert(reversed_items, items_to_show[i])
+  local prompt_position = get_prompt_position()
+  local display_items = {}
+
+  if prompt_position == 'top' then
+    display_items = items_to_show
+  else
+    local items_length = #items_to_show
+
+    for i = 1, items_length do
+      display_items[i] = items_to_show[items_length - i + 1]
+    end
   end
 
   local line_data = {}
 
-  for i, item in ipairs(reversed_items) do
+  for i, item in ipairs(display_items) do
     local icon, icon_hl_group = icons.get_icon_display(item.name, item.extension, false)
     local frecency = ''
     local total_frecency = (item.total_frecency_score or 0)
@@ -656,8 +687,14 @@ function M.render_list()
   vim.api.nvim_buf_set_option(M.state.list_buf, 'modifiable', false)
 
   if #items > 0 then
-    -- cursor=1 means first/best item, which appears at the last line after reversal
-    local cursor_line = empty_lines_needed + (display_count - M.state.cursor + 1)
+    local prompt_position = get_prompt_position()
+    local cursor_line
+
+    if prompt_position == 'top' then
+      cursor_line = empty_lines_needed + M.state.cursor
+    else
+      cursor_line = empty_lines_needed + (display_count - M.state.cursor + 1)
+    end
 
     if cursor_line > 0 and cursor_line <= win_height then
       vim.api.nvim_win_set_cursor(M.state.list_win, { cursor_line, 0 })
@@ -886,28 +923,36 @@ function M.update_status()
   })
 end
 
---- Move cursor up (towards worse results, which are visually higher)
 function M.move_up()
   if not M.state.active then return end
 
-  if M.state.cursor < #M.state.filtered_items then
-    M.state.cursor = M.state.cursor + 1
-    M.render_list()
-    M.update_preview()
-    M.update_status()
+  local prompt_position = get_prompt_position()
+
+  if prompt_position == 'top' then
+    if M.state.cursor > 1 then M.state.cursor = M.state.cursor - 1 end
+  else
+    if M.state.cursor < #M.state.filtered_items then M.state.cursor = M.state.cursor + 1 end
   end
+
+  M.render_list()
+  M.update_preview()
+  M.update_status()
 end
 
---- Move cursor down (towards better results, which are visually lower)
 function M.move_down()
   if not M.state.active then return end
 
-  if M.state.cursor > 1 then
-    M.state.cursor = M.state.cursor - 1
-    M.render_list()
-    M.update_preview()
-    M.update_status()
+  local prompt_position = get_prompt_position()
+
+  if prompt_position == 'top' then
+    if M.state.cursor < #M.state.filtered_items then M.state.cursor = M.state.cursor + 1 end
+  else
+    if M.state.cursor > 1 then M.state.cursor = M.state.cursor - 1 end
   end
+
+  M.render_list()
+  M.update_preview()
+  M.update_status()
 end
 
 --- Scroll preview up by half window height

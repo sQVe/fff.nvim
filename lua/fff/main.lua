@@ -55,7 +55,7 @@ function M.setup(config)
       debug = 'Comment',
     },
     layout = {
-      prompt_position = 'top',
+      prompt_position = 'bottom',
       preview_position = 'right',
       preview_width = 0.4,
       height = 0.8,
