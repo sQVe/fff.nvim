@@ -66,12 +66,12 @@ function M.create_ui()
     and main.config.debug
     and main.config.debug.show_scores
 
-  local width = math.floor(vim.o.columns * config.width)
-  local height = math.floor(vim.o.lines * config.height)
+  local width = math.floor(vim.o.columns * config.layout.width)
+  local height = math.floor(vim.o.lines * config.layout.height)
   local col = math.floor((vim.o.columns - width) / 2)
   local row = math.floor((vim.o.lines - height) / 2)
 
-  local preview_width = M.enabled_preview() and math.floor(width * config.preview.width) or 0
+  local preview_width = M.enabled_preview() and math.floor(width * config.layout.preview_width) or 0
   local list_width = width - preview_width - 3 -- Account for separators
   local list_height = height - 4 -- Same as list window height
 

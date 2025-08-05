@@ -71,20 +71,25 @@ FFF.nvim requires:
 FFF.nvim comes with sensible defaults. Here's the complete default configuration:
 
 ```lua
-require("fff").setup({
-  -- UI dimensions and appearance
-  width = 0.8,          -- Window width as fraction of screen
-  height = 0.8,         -- Window height as fraction of screen
-  prompt = '🪿 ',       -- Input prompt symbol
+require('fff').setup({
+  prompt = '🪿 ',
+  title = 'FFF Files',
+  max_results = 100, -- Maximum search results to display
+  max_threads = 4, -- Maximum threads for fuzzy search
+
   preview = {
-      enabled = true,
-      width = 0.5,
-      max_lines = 100,
-      max_size = 1024 * 1024, -- 1MB
+    enabled = true,
+    max_lines = 100,
+    max_size = 1024 * 1024, -- 1MB
   },
-  title = 'FFF Files',  -- Window title
-  max_results = 60,     -- Maximum search results to display
-  max_threads = 4,      -- Maximum threads for fuzzy search
+
+  layout = {
+    height = 0.8, -- Window height as fraction of screen
+    width = 0.8, -- Window width as fraction of screen
+    prompt_position = 'bottom', -- 'top' or 'bottom'
+    preview_position = 'right', -- Currently only 'right' is supported
+    preview_width = 0.4, -- Preview width as fraction of window
+  },
 
   keymaps = {
     close = '<Esc>',
@@ -114,7 +119,7 @@ require("fff").setup({
 
   -- Debug options
   debug = {
-    show_scores = false,  -- Toggle with F2 or :FFFDebug
+    show_scores = false, -- Toggle with F2 or :FFFDebug
   },
 })
 ```
@@ -124,12 +129,12 @@ require("fff").setup({
 #### Available methods
 
 ```lua
-require("fff").find_files() -- Find files in current directory
-require("fff").find_in_git_root() -- Find files in the current git repository
-require("fff").scan_files() -- Trigger rescan of files in the current directory
-require("fff").refresh_git_status() -- Refresh git status for the active file lock
-require("fff").find_files_in_dir(path) -- Find files in a specific directory
-require("fff").change_indexing_directory(new_path) -- Change the base directory for the file picker
+require('fff').find_files() -- Find files in current directory
+require('fff').find_in_git_root() -- Find files in the current git repository
+require('fff').scan_files() -- Trigger rescan of files in the current directory
+require('fff').refresh_git_status() -- Refresh git status for the active file lock
+require('fff').find_files_in_dir(path) -- Find files in a specific directory
+require('fff').change_indexing_directory(new_path) -- Change the base directory for the file picker
 ```
 
 #### Multiple Key Bindings
@@ -138,9 +143,9 @@ You can assign multiple key combinations to the same action:
 
 ```lua
 keymaps = {
-  move_up = { '<Up>', '<C-p>', '<C-k>' },    -- Three ways to move up
-  close = { '<Esc>', '<C-c>' },              -- Two ways to close
-  select = '<CR>',                           -- Single binding still works
+  move_up = { '<Up>', '<C-p>', '<C-k>' }, -- Three ways to move up
+  close = { '<Esc>', '<C-c>' }, -- Two ways to close
+  select = '<CR>', -- Single binding still works
 }
 ```
 

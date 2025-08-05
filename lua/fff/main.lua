@@ -10,14 +10,12 @@ M.state = { initialized = false }
 function M.setup(config)
   local default_config = {
     base_path = vim.fn.getcwd(),
-    max_results = 100,
     prompt = '🪿 ', -- Input prompt symbol
     title = 'FFF Files', -- Window title
-    width = 0.8,
-    height = 0.8,
+    max_results = 100,
+    max_threads = 4,
     preview = {
       enabled = true,
-      width = 0.5,
       max_lines = 5000,
       max_size = 10 * 1024 * 1024, -- 10MB
       imagemagick_info_format_str = '%m: %wx%h, %[colorspace], %q-bit',
@@ -55,11 +53,11 @@ function M.setup(config)
       debug = 'Comment',
     },
     layout = {
+      height = 0.8,
+      width = 0.8,
       prompt_position = 'bottom',
       preview_position = 'right',
       preview_width = 0.4,
-      height = 0.8,
-      width = 0.8,
     },
     frecency = {
       enabled = true,
