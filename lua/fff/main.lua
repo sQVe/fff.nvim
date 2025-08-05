@@ -2,16 +2,104 @@ local fuzzy = require('fff.fuzzy')
 if not fuzzy then error('Failed to load fff.fuzzy module. Ensure the Rust backend is compiled and available.') end
 
 local M = {}
+
 M.config = {}
 M.state = { initialized = false }
+
+local DEPRECATION_RULES = {
+  {
+    -- Top-level width -> layout.width
+    old_path = { 'width' },
+    new_path = { 'layout', 'width' },
+    message = 'config.width is deprecated. Use config.layout.width instead.',
+  },
+  {
+    -- Top-level height -> layout.height
+    old_path = { 'height' },
+    new_path = { 'layout', 'height' },
+    message = 'config.height is deprecated. Use config.layout.height instead.',
+  },
+  {
+    -- preview.width -> layout.preview_width
+    old_path = { 'preview', 'width' },
+    new_path = { 'layout', 'preview_width' },
+    message = 'config.preview.width is deprecated. Use config.layout.preview_width instead.',
+  },
+}
+
+--- Get value from nested table using path array
+--- @param tbl table Source table
+--- @param path table Array of keys to traverse
+--- @return any|nil Value at path or nil if not found
+local function get_nested_value(tbl, path)
+  local current = tbl
+  for _, key in ipairs(path) do
+    if type(current) ~= 'table' or current[key] == nil then return nil end
+    current = current[key]
+  end
+
+  return current
+end
+
+--- Set value in nested table using path array, creating intermediate tables
+--- @param tbl table Target table
+--- @param path table Array of keys to traverse
+--- @param value any Value to set
+local function set_nested_value(tbl, path, value)
+  local current = tbl
+  for i = 1, #path - 1 do
+    local key = path[i]
+    if type(current[key]) ~= 'table' then current[key] = {} end
+    current = current[key]
+  end
+
+  current[path[#path]] = value
+end
+
+--- Remove value from nested table using path array
+--- @param tbl table Target table
+--- @param path table Array of keys to traverse
+local function remove_nested_value(tbl, path)
+  if #path == 0 then return end
+
+  local current = tbl
+  for i = 1, #path - 1 do
+    local key = path[i]
+    if type(current[key]) ~= 'table' then return end
+    current = current[key]
+  end
+
+  current[path[#path]] = nil
+end
+
+--- Handle deprecated configuration options with migration warnings
+--- @param user_config table User provided configuration
+--- @return table Migrated configuration
+local function handle_deprecated_config(user_config)
+  if not user_config then return {} end
+
+  local migrated_config = vim.deepcopy(user_config)
+
+  for _, rule in ipairs(DEPRECATION_RULES) do
+    local old_value = get_nested_value(user_config, rule.old_path)
+    if old_value ~= nil then
+      set_nested_value(migrated_config, rule.new_path, old_value)
+      remove_nested_value(migrated_config, rule.old_path)
+
+      vim.notify('FFF: ' .. rule.message, vim.log.levels.WARN)
+    end
+  end
+
+  return migrated_config
+end
 
 --- Setup the file picker with the given configuration
 --- @param config table Configuration options
 function M.setup(config)
   local default_config = {
     base_path = vim.fn.getcwd(),
-    prompt = '🪿 ', -- Input prompt symbol
-    title = 'FFF Files', -- Window title
+    prompt = '🪿 ',
+    title = 'FFF Files',
     max_results = 100,
     max_threads = 4,
     preview = {
@@ -88,7 +176,9 @@ function M.setup(config)
     ui_enabled = true,
   }
 
-  local merged_config = vim.tbl_deep_extend('force', default_config, config or {})
+  local migrated_user_config = handle_deprecated_config(config)
+  local merged_config = vim.tbl_deep_extend('force', default_config, migrated_user_config)
+
   M.config = merged_config
 
   local db_path = merged_config.frecency.db_path or (vim.fn.stdpath('cache') .. '/fff_nvim')
