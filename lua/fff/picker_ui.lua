@@ -85,62 +85,54 @@ function M.calculate_layout_dimensions(cfg)
 
   -- Section 2: Calculate dimensions based on preview position
   if cfg.preview_position == 'left' then
-    -- Left preview layout
     local separator_width = preview_enabled and SEPARATOR_WIDTH or 0
     local list_width = math.max(0, total_width - cfg.preview_width - separator_width)
     local list_height = total_height
 
-    -- Position main windows
-    layout.list_col = cfg.start_col + cfg.preview_width + separator_width
+    layout.list_col = cfg.start_col + cfg.preview_width + 3 -- +3 for borders and separator
     layout.list_width = list_width
     layout.list_height = list_height
     layout.input_col = layout.list_col
     layout.input_width = list_width
 
-    -- Position preview window
     if preview_enabled then
       layout.preview = {
         col = cfg.start_col + 1,
-        width = cfg.preview_width,
         row = cfg.start_row + 1,
+        width = cfg.preview_width,
         height = list_height,
       }
     end
   elseif cfg.preview_position == 'right' then
-    -- Right preview layout
     local separator_width = preview_enabled and SEPARATOR_WIDTH or 0
     local list_width = math.max(0, total_width - cfg.preview_width - separator_width)
     local list_height = total_height
 
-    -- Position main windows
     layout.list_col = cfg.start_col + 1
     layout.list_width = list_width
     layout.list_height = list_height
     layout.input_col = layout.list_col
     layout.input_width = list_width
 
-    -- Position preview window
     if preview_enabled then
       layout.preview = {
-        col = cfg.start_col + list_width + separator_width,
-        width = cfg.preview_width,
+        col = cfg.start_col + list_width + 3, -- +3 for borders and separator (matches original)
         row = cfg.start_row + 1,
+        width = cfg.preview_width,
         height = list_height,
       }
     end
   elseif cfg.preview_position == 'top' then
-    -- Top preview layout
     local separator_height = preview_enabled and SEPARATOR_HEIGHT or 0
     local list_height = math.max(0, total_height - cfg.preview_height - separator_height)
 
-    -- Position main windows
     layout.list_col = cfg.start_col + 1
     layout.list_width = total_width
     layout.list_height = list_height
     layout.input_col = layout.list_col
     layout.input_width = total_width
+    layout.list_start_row = cfg.start_row + (preview_enabled and (cfg.preview_height + separator_height) or 0) + 1
 
-    -- Position preview window
     if preview_enabled then
       layout.preview = {
         col = cfg.start_col + 1,
@@ -149,23 +141,17 @@ function M.calculate_layout_dimensions(cfg)
         height = cfg.preview_height,
       }
     end
-
-    -- Adjust list position for top preview
-    local list_start_row = cfg.start_row + (preview_enabled and (cfg.preview_height + separator_height) or 1)
-    layout.list_start_row = list_start_row
-  else -- cfg.preview_position == 'bottom'
-    -- Bottom preview layout
+  else
     local separator_height = preview_enabled and SEPARATOR_HEIGHT or 0
     local list_height = math.max(0, total_height - cfg.preview_height - separator_height)
 
-    -- Position main windows
     layout.list_col = cfg.start_col + 1
     layout.list_width = total_width
     layout.list_height = list_height
     layout.input_col = layout.list_col
     layout.input_width = total_width
+    layout.list_start_row = cfg.start_row + 1
 
-    -- Position preview window (will be positioned after list in Section 3)
     if preview_enabled then
       layout.preview = {
         col = cfg.start_col + 1,
@@ -173,23 +159,28 @@ function M.calculate_layout_dimensions(cfg)
         height = cfg.preview_height,
       }
     end
-
-    -- Set list start position
-    layout.list_start_row = cfg.start_row + 1
   end
 
   -- Section 3: Position prompt and adjust row positions
   if cfg.preview_position == 'left' or cfg.preview_position == 'right' then
-    -- Vertical splits: prompt above or below list
     if cfg.prompt_position == 'top' then
       layout.input_row = cfg.start_row + 1
-      layout.list_row = cfg.start_row + PROMPT_HEIGHT
+      layout.list_row = cfg.start_row + PROMPT_HEIGHT + 1
     else
       layout.list_row = cfg.start_row + 1
       layout.input_row = cfg.start_row + cfg.total_height - BORDER_SIZE
     end
+
+    if layout.preview then
+      if cfg.prompt_position == 'top' then
+        layout.preview.row = cfg.start_row + 1
+        layout.preview.height = cfg.total_height - BORDER_SIZE
+      else
+        layout.preview.row = cfg.start_row + 1
+        layout.preview.height = cfg.total_height - BORDER_SIZE
+      end
+    end
   else
-    -- Horizontal splits: prompt positioned relative to list area
     local list_start_row = layout.list_start_row
     if cfg.prompt_position == 'top' then
       layout.input_row = list_start_row
@@ -200,34 +191,35 @@ function M.calculate_layout_dimensions(cfg)
       layout.input_row = list_start_row + layout.list_height + 1
     end
 
-    -- Position bottom preview after list
     if cfg.preview_position == 'bottom' and layout.preview then
-      layout.preview.row = layout.list_row + layout.list_height + PROMPT_HEIGHT
+      if cfg.prompt_position == 'top' then
+        layout.preview.row = layout.list_row + layout.list_height + 1
+      else
+        layout.preview.row = layout.input_row + PROMPT_HEIGHT
+      end
     end
   end
 
   -- Section 4: Position debug panel (if enabled)
   if cfg.debug_enabled and preview_enabled and layout.preview then
     if cfg.preview_position == 'left' or cfg.preview_position == 'right' then
-      -- Debug panel above preview in vertical splits
-      layout.file_info = {
-        width = cfg.preview_width,
-        height = cfg.file_info_height,
-        col = layout.preview.col,
-        row = cfg.start_row + 1,
-      }
-      layout.preview.row = cfg.start_row + cfg.file_info_height + PROMPT_HEIGHT
-      layout.preview.height = math.max(0, layout.list_height - cfg.file_info_height)
-    else
-      -- Debug panel above preview in horizontal splits
       layout.file_info = {
         width = layout.preview.width,
         height = cfg.file_info_height,
         col = layout.preview.col,
         row = layout.preview.row,
       }
-      layout.preview.row = layout.preview.row + cfg.file_info_height + BORDER_SIZE
-      layout.preview.height = math.max(0, layout.preview.height - cfg.file_info_height - BORDER_SIZE)
+      layout.preview.row = layout.preview.row + cfg.file_info_height + SEPARATOR_HEIGHT
+      layout.preview.height = math.max(0, layout.preview.height - cfg.file_info_height - SEPARATOR_HEIGHT)
+    else
+      layout.file_info = {
+        width = layout.preview.width,
+        height = cfg.file_info_height,
+        col = layout.preview.col,
+        row = layout.preview.row,
+      }
+      layout.preview.row = layout.preview.row + cfg.file_info_height + SEPARATOR_HEIGHT
+      layout.preview.height = math.max(0, layout.preview.height - cfg.file_info_height - SEPARATOR_HEIGHT)
     end
   end
 
