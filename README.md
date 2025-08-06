@@ -140,7 +140,7 @@ require('fff').setup({
   -- Debug options
   debug = {
     enabled = false,
-    show_scores = false,                              -- Toggle with F2 or :FFFDebug
+    show_scores = false,  -- Toggle with F2 or :FFFDebug
   },
 
   -- Logging configuration
@@ -176,11 +176,11 @@ require('fff').setup({
 #### Available methods
 
 ```lua
-require('fff').find_files()                     -- Find files in current directory
-require('fff').find_in_git_root()                -- Find files in the current git repository
-require('fff').scan_files()                      -- Trigger rescan of files in the current directory
-require('fff').refresh_git_status()              -- Refresh git status for the active file lock
-require('fff').find_files_in_dir(path)           -- Find files in a specific directory
+require('fff').find_files()                        -- Find files in current directory
+require('fff').find_in_git_root()                  -- Find files in the current git repository
+require('fff').scan_files()                        -- Trigger rescan of files in the current directory
+require('fff').refresh_git_status()                -- Refresh git status for the active file lock
+require('fff').find_files_in_dir(path)             -- Find files in a specific directory
 require('fff').change_indexing_directory(new_path) -- Change the base directory for the file picker
 ```
 
@@ -190,9 +190,9 @@ You can assign multiple key combinations to the same action:
 
 ```lua
 keymaps = {
-  move_up = { '<Up>', '<C-p>', '<C-k>' },         -- Three ways to move up
-  close = { '<Esc>', '<C-c>' },                   -- Two ways to close
-  select = '<CR>',                                -- Single binding still works
+  move_up = { '<Up>', '<C-p>', '<C-k>' },          -- Three ways to move up
+  close = { '<Esc>', '<C-c>' },                    -- Two ways to close
+  select = '<CR>',                                 -- Single binding still works
 }
 ```
 
