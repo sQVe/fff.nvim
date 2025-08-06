@@ -72,36 +72,36 @@ FFF.nvim comes with sensible defaults. Here's the complete default configuration
 
 ```lua
 require('fff').setup({
-  prompt = '🪿 ', -- Input prompt symbol
-  title = 'FFF Files', -- Window title
-  max_results = 100, -- Maximum search results to display
-  max_threads = 4, -- Maximum threads for fuzzy search
+  prompt = '🪿 ',                                     -- Input prompt symbol
+  title = 'FFF Files',                                -- Window title
+  max_results = 100,                                  -- Maximum search results to display
+  max_threads = 4,                                    -- Maximum threads for fuzzy search
 
   -- Preview configuration
   preview = {
     enabled = true,
-    max_lines = 5000, -- Maximum lines to show in preview
-    max_size = 10 * 1024 * 1024, -- 10MB max file size for preview
+    max_lines = 5000,                                 -- Maximum lines to show in preview
+    max_size = 10 * 1024 * 1024,                     -- 10MB max file size for preview
     imagemagick_info_format_str = '%m: %wx%h, %[colorspace], %q-bit',
-    line_numbers = false, -- Show line numbers in preview
-    wrap_lines = false, -- Wrap long lines
-    show_file_info = true, -- Show file information
-    binary_file_threshold = 1024, -- Files larger than this are treated as binary
+    line_numbers = false,                             -- Show line numbers in preview
+    wrap_lines = false,                               -- Wrap long lines
+    show_file_info = true,                            -- Show file information
+    binary_file_threshold = 1024,                     -- Files larger than this are treated as binary
     filetypes = {
       svg = { wrap_lines = true },
       markdown = { wrap_lines = true },
       text = { wrap_lines = true },
-      log = { tail_lines = 100 }, -- Show last 100 lines for logs
+      log = { tail_lines = 100 },                     -- Show last 100 lines for logs
     },
   },
 
   -- Layout configuration - supports functions for dynamic sizing
   layout = {
-    height = 0.8, -- Window height as fraction of screen (or function)
-    width = 0.8, -- Window width as fraction of screen (or function)
-    prompt_position = 'bottom', -- 'top' or 'bottom' (or function)
-    preview_position = 'right', -- 'left', 'right', 'top', 'bottom' (or function)
-    preview_size = 0.4, -- Preview size as fraction (width for left/right, height for top/bottom, or function)
+    height = 0.8,                                     -- Window height as fraction of screen (or function)
+    width = 0.8,                                      -- Window width as fraction of screen (or function)
+    prompt_position = 'bottom',                       -- 'top' or 'bottom' (or function)
+    preview_position = 'right',                       -- 'left', 'right', 'top', 'bottom' (or function)
+    preview_size = 0.4,                               -- Preview size as fraction (or function)
   },
 
   -- Key mappings
@@ -140,7 +140,7 @@ require('fff').setup({
   -- Debug options
   debug = {
     enabled = false,
-    show_scores = false, -- Toggle with F2 or :FFFDebug
+    show_scores = false,                              -- Toggle with F2 or :FFFDebug
   },
 
   -- Logging configuration
@@ -170,53 +170,6 @@ require('fff').setup({
   },
 })
 ```
-
-### Dynamic Configuration
-
-Layout options support dynamic functions for responsive sizing:
-
-```lua
-require('fff').setup({
-  layout = {
-    -- Static values
-    height = 0.8,
-    width = 0.8,
-
-    -- Or dynamic functions that receive terminal_width, terminal_height
-    height = function(terminal_width, terminal_height)
-      return terminal_height > 50 and 0.9 or 0.7
-    end,
-
-    width = function(terminal_width, terminal_height)
-      return terminal_width > 120 and 0.8 or 0.95
-    end,
-
-    preview_size = function(terminal_width, terminal_height)
-      return terminal_width > 100 and 0.4 or 0.3
-    end,
-
-    -- Position can also be dynamic
-    preview_position = function(terminal_width, terminal_height)
-      return terminal_width > 100 and 'right' or 'bottom'
-    end,
-
-    prompt_position = function(terminal_width, terminal_height)
-      return terminal_height > 30 and 'bottom' or 'top'
-    end,
-  }
-})
-```
-
-### Configuration Migration
-
-The plugin automatically handles deprecated configuration options with clear warnings:
-
-- `config.width` → `config.layout.width`
-- `config.height` → `config.layout.height`
-- `config.preview.width` → `config.layout.preview_size`
-- `config.layout.preview_width` → `config.layout.preview_size`
-
-Legacy configurations are automatically migrated on startup.
 
 ### Key Features
 
