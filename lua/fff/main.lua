@@ -20,10 +20,16 @@ local DEPRECATION_RULES = {
     message = 'config.height is deprecated. Use config.layout.height instead.',
   },
   {
-    -- preview.width -> layout.preview_width
+    -- preview.width -> layout.preview_size
     old_path = { 'preview', 'width' },
-    new_path = { 'layout', 'preview_width' },
-    message = 'config.preview.width is deprecated. Use config.layout.preview_width instead.',
+    new_path = { 'layout', 'preview_size' },
+    message = 'config.preview.width is deprecated. Use config.layout.preview_size instead.',
+  },
+  {
+    -- layout.preview_width -> layout.preview_size
+    old_path = { 'layout', 'preview_width' },
+    new_path = { 'layout', 'preview_size' },
+    message = 'config.layout.preview_width is deprecated. Use config.layout.preview_size instead.',
   },
 }
 
@@ -144,8 +150,8 @@ function M.setup(config)
       height = 0.8,
       width = 0.8,
       prompt_position = 'bottom',
-      preview_position = 'right',
-      preview_width = 0.4,
+      preview_position = 'right', -- 'left', 'right', 'top', 'bottom'
+      preview_size = 0.4,
     },
     frecency = {
       enabled = true,
