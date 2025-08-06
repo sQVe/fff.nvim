@@ -28,7 +28,7 @@ end
 function M.resolve_config_value(config_value, terminal_width, terminal_height, validator, fallback, error_context)
   if type(config_value) == 'function' then
     local success, result = pcall(config_value, terminal_width, terminal_height)
-    
+
     if success and validator(result) then
       return result
     else
@@ -45,9 +45,7 @@ end
 --- Validate numeric ratio (0 < value <= 1)
 --- @param value any Value to validate
 --- @return boolean True if valid numeric ratio
-function M.is_valid_ratio(value)
-  return type(value) == 'number' and value > 0 and value <= 1
-end
+function M.is_valid_ratio(value) return type(value) == 'number' and value > 0 and value <= 1 end
 
 --- Validate position string
 --- @param value any Value to validate
