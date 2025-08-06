@@ -30,7 +30,7 @@ It comes with a dedicated rust backend runtime that keep tracks of the file inde
 
 ## Installation
 
-> [!NOTE]  
+> [!NOTE]
 > Although we'll try to make sure to keep 100% backward compatibiility, by using you should understand that silly bugs and breaking changes may happen.
 > And also we hope for your contributions and feedback to make this plugin ideal for everyone.
 
@@ -81,7 +81,7 @@ require('fff').setup({
   preview = {
     enabled = true,
     max_lines = 5000,                                 -- Maximum lines to show in preview
-    max_size = 10 * 1024 * 1024,                     -- 10MB max file size for preview
+    max_size = 10 * 1024 * 1024,                      -- 10MB max file size for preview
     imagemagick_info_format_str = '%m: %wx%h, %[colorspace], %q-bit',
     line_numbers = false,                             -- Show line numbers in preview
     wrap_lines = false,                               -- Wrap long lines
@@ -176,11 +176,11 @@ require('fff').setup({
 #### Available methods
 
 ```lua
-require('fff').find_files() -- Find files in current directory
-require('fff').find_in_git_root() -- Find files in the current git repository
-require('fff').scan_files() -- Trigger rescan of files in the current directory
-require('fff').refresh_git_status() -- Refresh git status for the active file lock
-require('fff').find_files_in_dir(path) -- Find files in a specific directory
+require('fff').find_files()                     -- Find files in current directory
+require('fff').find_in_git_root()                -- Find files in the current git repository
+require('fff').scan_files()                      -- Trigger rescan of files in the current directory
+require('fff').refresh_git_status()              -- Refresh git status for the active file lock
+require('fff').find_files_in_dir(path)           -- Find files in a specific directory
 require('fff').change_indexing_directory(new_path) -- Change the base directory for the file picker
 ```
 
@@ -190,9 +190,9 @@ You can assign multiple key combinations to the same action:
 
 ```lua
 keymaps = {
-  move_up = { '<Up>', '<C-p>', '<C-k>' }, -- Three ways to move up
-  close = { '<Esc>', '<C-c>' }, -- Two ways to close
-  select = '<CR>', -- Single binding still works
+  move_up = { '<Up>', '<C-p>', '<C-k>' },         -- Three ways to move up
+  close = { '<Esc>', '<C-c>' },                   -- Two ways to close
+  select = '<CR>',                                -- Single binding still works
 }
 ```
 
