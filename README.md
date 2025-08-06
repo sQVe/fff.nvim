@@ -87,8 +87,8 @@ require('fff').setup({
     height = 0.8, -- Window height as fraction of screen
     width = 0.8, -- Window width as fraction of screen
     prompt_position = 'bottom', -- 'top' or 'bottom'
-    preview_position = 'right', -- Currently only 'right' is supported
-    preview_width = 0.4, -- Preview width as fraction of window
+    preview_position = 'right', -- 'left', 'right', 'top', 'bottom'
+    preview_size = 0.4, -- Preview size as fraction of window (width for left/right, height for top/bottom)
   },
 
   keymaps = {
