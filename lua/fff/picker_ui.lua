@@ -639,11 +639,13 @@ function M.update_results_sync()
     end
   end
 
+  local prompt_position = get_prompt_position()
   local results = file_picker.search_files(
     M.state.query,
     M.state.config.max_results,
     M.state.config.max_threads,
-    M.state.current_file_cache
+    M.state.current_file_cache,
+    prompt_position
   )
 
   -- because the actual files could be different even with same count
@@ -741,18 +743,7 @@ function M.render_list()
     table.insert(items_to_show, items[i])
   end
 
-  local prompt_position = get_prompt_position()
-  local display_items = {}
-
-  if prompt_position == 'top' then
-    display_items = items_to_show
-  else
-    local items_length = #items_to_show
-
-    for i = 1, items_length do
-      display_items[i] = items_to_show[items_length - i + 1]
-    end
-  end
+  local display_items = items_to_show
 
   local line_data = {}
 
@@ -819,14 +810,7 @@ function M.render_list()
   vim.api.nvim_buf_set_option(M.state.list_buf, 'modifiable', false)
 
   if #items > 0 then
-    local prompt_position = get_prompt_position()
-    local cursor_line
-
-    if prompt_position == 'top' then
-      cursor_line = empty_lines_needed + M.state.cursor
-    else
-      cursor_line = empty_lines_needed + (display_count - M.state.cursor + 1)
-    end
+    local cursor_line = empty_lines_needed + M.state.cursor
 
     if cursor_line > 0 and cursor_line <= win_height then
       vim.api.nvim_win_set_cursor(M.state.list_win, { cursor_line, 0 })
@@ -1056,13 +1040,7 @@ end
 function M.move_up()
   if not M.state.active then return end
 
-  local prompt_position = get_prompt_position()
-
-  if prompt_position == 'top' then
-    if M.state.cursor > 1 then M.state.cursor = M.state.cursor - 1 end
-  else
-    if M.state.cursor < #M.state.filtered_items then M.state.cursor = M.state.cursor + 1 end
-  end
+  if M.state.cursor > 1 then M.state.cursor = M.state.cursor - 1 end
 
   M.render_list()
   M.update_preview()
@@ -1072,13 +1050,7 @@ end
 function M.move_down()
   if not M.state.active then return end
 
-  local prompt_position = get_prompt_position()
-
-  if prompt_position == 'top' then
-    if M.state.cursor < #M.state.filtered_items then M.state.cursor = M.state.cursor + 1 end
-  else
-    if M.state.cursor > 1 then M.state.cursor = M.state.cursor - 1 end
-  end
+  if M.state.cursor < #M.state.filtered_items then M.state.cursor = M.state.cursor + 1 end
 
   M.render_list()
   M.update_preview()
