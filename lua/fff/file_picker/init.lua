@@ -81,19 +81,6 @@ function M.scan_files()
   M.state.last_scan_time = os.time()
 end
 
---- Get cached files from the file picker
-function M.get_cached_files()
-  if not M.state.initialized then return {} end
-
-  local ok, files = pcall(fuzzy.get_cached_files)
-  if not ok then
-    vim.notify('Failed to get cached files: ' .. files, vim.log.levels.ERROR)
-    return {}
-  end
-
-  return files
-end
-
 --- Search files with fuzzy matching using blink.cmp's advanced algorithm
 --- @param query string Search query
 --- @param max_results number Maximum number of results (optional)
@@ -187,15 +174,16 @@ function M.is_initialized() return M.state.initialized end
 function M.get_config() return M.config end
 
 --- Get scan progress information
---- @return table Progress information with total_files, scanned_files, is_scanning
+--- @return table Progress information with scanned_files_count, is_scanning
 function M.get_scan_progress()
-  if not M.state.initialized then return { total_files = 0, scanned_files = 0, is_scanning = false } end
+  if not M.state.initialized then return { total_files = 0, scanned_files_count = 0, is_scanning = false } end
 
   local ok, result = pcall(fuzzy.get_scan_progress)
   if not ok then
     vim.notify('Failed to get scan progress: ' .. result, vim.log.levels.WARN)
-    return { total_files = 0, scanned_files = 0, is_scanning = false }
+    return { scanned_files_count = 0, is_scanning = false }
   end
+
   return result
 end
 
