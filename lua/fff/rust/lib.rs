@@ -95,7 +95,13 @@ pub fn scan_files(_: &Lua, _: ()) -> LuaResult<()> {
 
 pub fn fuzzy_search_files(
     lua: &Lua,
-    (query, max_results, max_threads, current_file, prompt_position): (String, usize, usize, Option<String>, Option<String>),
+    (query, max_results, max_threads, current_file, prompt_position): (
+        String,
+        usize,
+        usize,
+        Option<String>,
+        Option<String>,
+    ),
 ) -> LuaResult<LuaValue> {
     let Some(ref mut picker) = *FILE_PICKER.write().map_err(|_| Error::AcquireItemLock)? else {
         return Err(Error::FilePickerMissing)?;
