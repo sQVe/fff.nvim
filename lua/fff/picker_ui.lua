@@ -810,7 +810,15 @@ function M.render_list()
   vim.api.nvim_buf_set_option(M.state.list_buf, 'modifiable', false)
 
   if #items > 0 then
-    local cursor_line = empty_lines_needed + M.state.cursor
+    local prompt_position = get_prompt_position()
+    local cursor_line
+
+    if prompt_position == 'bottom' then
+      cursor_line = empty_lines_needed + display_count - M.state.cursor + 1
+    else
+      cursor_line = empty_lines_needed + M.state.cursor
+    end
+    cursor_line = math.max(1, math.min(cursor_line, win_height))
 
     if cursor_line > 0 and cursor_line <= win_height then
       vim.api.nvim_win_set_cursor(M.state.list_win, { cursor_line, 0 })
@@ -1039,8 +1047,15 @@ end
 
 function M.move_up()
   if not M.state.active then return end
+  if #M.state.filtered_items == 0 then return end
 
-  if M.state.cursor > 1 then M.state.cursor = M.state.cursor - 1 end
+  local prompt_position = get_prompt_position()
+
+  if prompt_position == 'bottom' then
+    M.state.cursor = math.min(M.state.cursor + 1, #M.state.filtered_items)
+  else
+    M.state.cursor = math.max(M.state.cursor - 1, 1)
+  end
 
   M.render_list()
   M.update_preview()
@@ -1049,8 +1064,15 @@ end
 
 function M.move_down()
   if not M.state.active then return end
+  if #M.state.filtered_items == 0 then return end
 
-  if M.state.cursor < #M.state.filtered_items then M.state.cursor = M.state.cursor + 1 end
+  local prompt_position = get_prompt_position()
+
+  if prompt_position == 'bottom' then
+    M.state.cursor = math.max(M.state.cursor - 1, 1)
+  else
+    M.state.cursor = math.min(M.state.cursor + 1, #M.state.filtered_items)
+  end
 
   M.render_list()
   M.update_preview()
