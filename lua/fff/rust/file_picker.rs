@@ -192,24 +192,21 @@ impl FilePicker {
         };
 
         let time = std::time::Instant::now();
-        let (mut items, mut scores) = match_and_score_files(files, &context);
+        let (mut items, mut scores, total_matched) = match_and_score_files(files, &context);
 
         // Reverse results when prompt is at bottom so best matches appear closest to prompt.
         if prompt_position == Some("bottom") {
             items.reverse();
             scores.reverse();
         }
-
         debug!(
             "Fuzzy search completed in {:?}: found {} results for query '{}', top result {:?}, prompt_position={:?}",
             time.elapsed(),
-            items.len(),
+            total_matched,
             query,
             items.first(),
             prompt_position,
         );
-
-        let total_matched = items.len();
         SearchResult {
             items,
             scores,

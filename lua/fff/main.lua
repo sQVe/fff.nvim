@@ -110,8 +110,9 @@ function M.setup(config)
     max_threads = 4,
     preview = {
       enabled = true,
-      max_lines = 5000,
-      max_size = 10 * 1024 * 1024, -- 10MB
+      max_size = 1 * 1024 * 1024, -- Keep file size limit for early detection
+      max_line_length = 1000, -- Keep line length limit for memory safety
+      chunk_size = 16384, -- Bytes per chunk for dynamic loading (16KB - fits ~100-200 lines)
       imagemagick_info_format_str = '%m: %wx%h, %[colorspace], %q-bit',
       line_numbers = false,
       wrap_lines = false,
@@ -121,7 +122,6 @@ function M.setup(config)
         svg = { wrap_lines = true },
         markdown = { wrap_lines = true },
         text = { wrap_lines = true },
-        log = { tail_lines = 100 },
       },
     },
     keymaps = {

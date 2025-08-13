@@ -324,13 +324,20 @@ function M.create_ui()
 
   local layout = M.calculate_layout_dimensions(layout_config)
 
-  local buf_opts = { false, true } -- nofile, scratch buffer
-  M.state.input_buf = vim.api.nvim_create_buf(buf_opts[1], buf_opts[2])
-  M.state.list_buf = vim.api.nvim_create_buf(buf_opts[1], buf_opts[2])
-  if M.enabled_preview() then M.state.preview_buf = vim.api.nvim_create_buf(buf_opts[1], buf_opts[2]) end
+  M.state.input_buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_option(M.state.input_buf, 'bufhidden', 'wipe')
+
+  M.state.list_buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_option(M.state.list_buf, 'bufhidden', 'wipe')
+
+  if M.enabled_preview() then
+    M.state.preview_buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_option(M.state.preview_buf, 'bufhidden', 'wipe')
+  end
 
   if debug_enabled_in_preview then
-    M.state.file_info_buf = vim.api.nvim_create_buf(buf_opts[1], buf_opts[2])
+    M.state.file_info_buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_option(M.state.file_info_buf, 'bufhidden', 'wipe')
   else
     M.state.file_info_buf = nil
   end
@@ -907,20 +914,28 @@ function M.render_list()
           end
         end
 
-        -- git signs like borders
-        if icon_info and icon_info.git_status then
-          if git_utils.should_show_border(icon_info.git_status) then
-            local border_char = git_utils.get_border_char(icon_info.git_status)
-            local border_hl = git_utils.get_border_highlight(icon_info.git_status)
+        local is_cursor_line = line_idx == cursor_line
+        local border_char = ' ' -- render space so it is highlighted
+        local border_hl = nil
 
-            if border_char ~= '' and border_hl ~= '' then
-              vim.api.nvim_buf_set_extmark(M.state.list_buf, M.state.ns_id, line_idx - 1, 0, {
-                sign_text = border_char,
-                sign_hl_group = border_hl,
-                priority = 1000,
-              })
-            end
+        if icon_info and icon_info.git_status and git_utils.should_show_border(icon_info.git_status) then
+          border_char = git_utils.get_border_char(icon_info.git_status)
+          if is_cursor_line then
+            border_hl = git_utils.get_border_highlight_selected(icon_info.git_status)
+          else
+            border_hl = git_utils.get_border_highlight(icon_info.git_status)
           end
+        end
+
+        local final_border_hl = border_hl ~= '' and border_hl
+          or (is_cursor_line and M.state.config.hl.active_file or '')
+
+        if final_border_hl ~= '' or is_cursor_line then
+          vim.api.nvim_buf_set_extmark(M.state.list_buf, M.state.ns_id, line_idx - 1, 0, {
+            sign_text = border_char,
+            sign_hl_group = final_border_hl ~= '' and final_border_hl or M.state.config.hl.active_file,
+            priority = 1000,
+          })
         end
       end
     end
@@ -945,9 +960,10 @@ function M.update_preview()
     return
   end
 
-  if M.state.last_preview_file == item.path then
-    return -- Skip re-rendering if same file
-  end
+  if M.state.last_preview_file == item.path then return end
+
+  local preview = require('fff.file_picker.preview')
+  preview.clear()
 
   M.state.last_preview_file = item.path
 
@@ -1024,7 +1040,11 @@ function M.update_status(progress)
     status_info = string.format('Indexing files %d', progress.scanned_files_count)
   else
     local search_metadata = file_picker.get_search_metadata()
-    status_info = string.format('%d/%d', search_metadata.total_matched, search_metadata.total_files)
+    if #M.state.query < 2 then
+      status_info = string.format('%d', search_metadata.total_files)
+    else
+      status_info = string.format('%d/%d', search_metadata.total_matched, search_metadata.total_files)
+    end
   end
 
   if status_info == M.state.last_status_info then return end
@@ -1145,7 +1165,6 @@ function M.close()
     if win and vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
   end
 
-  -- Delete all buffers to prevent E37 error when quitting
   local buffers = {
     M.state.input_buf,
     M.state.list_buf,
@@ -1154,7 +1173,13 @@ function M.close()
   if M.enabled_preview() then buffers[#buffers + 1] = M.state.preview_buf end
 
   for _, buf in ipairs(buffers) do
-    if buf and vim.api.nvim_buf_is_valid(buf) then vim.api.nvim_buf_delete(buf, { force = true }) end
+    if buf and vim.api.nvim_buf_is_valid(buf) then
+      vim.api.nvim_buf_clear_namespace(buf, -1, 0, -1)
+
+      if buf == M.state.preview_buf then preview.clear_buffer(buf) end
+
+      vim.api.nvim_buf_delete(buf, { force = true })
+    end
   end
 
   M.state.input_win = nil
